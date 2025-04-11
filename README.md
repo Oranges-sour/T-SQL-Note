@@ -12,65 +12,81 @@
   - [3. 货币](#3-货币)
 - [变量](#变量)
   - [1. 定义变量](#1-定义变量)
-    - [例子：](#例子)
+    - [例子](#例子)
   - [2. 变量赋值](#2-变量赋值)
-    - [例子:](#例子-1)
+    - [例子](#例子-1)
   - [3. 变量输出](#3-变量输出)
-    - [例子：](#例子-2)
+    - [例子](#例子-2)
 - [注释](#注释)
 - [LEN(·) 函数](#len-函数)
-    - [例子：](#例子-3)
+    - [例子](#例子-3)
 - [DATALENGTH(·) 函数](#datalength-函数)
-    - [例子：](#例子-4)
+    - [例子](#例子-4)
 - [创建数据库](#创建数据库)
   - [语法](#语法)
   - [1. filespec 数据文件](#1-filespec-数据文件)
     - [文件后缀：](#文件后缀)
-    - [格式：](#格式)
-    - [例子：](#例子-5)
+    - [格式](#格式)
+    - [例子](#例子-5)
   - [2. filegroup 文件组](#2-filegroup-文件组)
     - [文件后缀：  `.ndf`](#文件后缀--ndf)
-    - [格式：](#格式-1)
-    - [例子：](#例子-6)
+    - [格式](#格式-1)
+    - [例子](#例子-6)
   - [3. 日志文件](#3-日志文件)
     - [文件后缀：`.ldf`](#文件后缀ldf)
-    - [格式：](#格式-2)
-    - [例子：](#例子-7)
-  - [4. 完整例子：](#4-完整例子)
+    - [格式](#格式-2)
+    - [例子](#例子-7)
+  - [4. 完整例子](#4-完整例子)
 - [修改数据库](#修改数据库)
   - [语法](#语法-1)
   - [1. add\_or\_modify\_files 添加或修改文件](#1-add_or_modify_files-添加或修改文件)
-    - [格式：](#格式-3)
-    - [例子：](#例子-8)
+    - [格式](#格式-3)
+    - [例子](#例子-8)
   - [2. add\_or\_modify\_filegroups 添加或修改文件组](#2-add_or_modify_filegroups-添加或修改文件组)
-    - [格式：](#格式-4)
-    - [例子:](#例子-9)
-  - [完整例子：](#完整例子)
+    - [格式](#格式-4)
+    - [例子](#例子-9)
+  - [完整例子](#完整例子)
 - [删除数据库](#删除数据库)
-  - [语法：](#语法-2)
-  - [完整例子：](#完整例子-1)
+  - [语法](#语法-2)
+  - [完整例子](#完整例子-1)
 - [分离数据库](#分离数据库)
-  - [语法：](#语法-3)
+  - [语法](#语法-3)
   - [分离时获得数据库独占权限](#分离时获得数据库独占权限)
   - [完整例子](#完整例子-2)
 - [附加数据库](#附加数据库)
-  - [语法：](#语法-4)
-  - [完整例子：](#完整例子-3)
+  - [语法](#语法-4)
+  - [完整例子](#完整例子-3)
 - [创建表](#创建表)
-  - [语法：](#语法-5)
+  - [语法](#语法-5)
   - [1. column\_definition 列定义](#1-column_definition-列定义)
-    - [格式：](#格式-5)
-    - [例子：](#例子-10)
+    - [格式](#格式-5)
+    - [例子](#例子-10)
   - [2. column\_constraint 列约束](#2-column_constraint-列约束)
     - [格式](#格式-6)
     - [例子](#例子-11)
-  - [完整例子：](#完整例子-4)
+  - [完整例子](#完整例子-4)
 - [修改表](#修改表)
-  - [语法：](#语法-6)
-  - [完整例子：](#完整例子-5)
+  - [语法](#语法-6)
+  - [完整例子](#完整例子-5)
 - [删除表](#删除表)
-  - [语法：](#语法-7)
-  - [完整例子：](#完整例子-6)
+  - [语法](#语法-7)
+  - [完整例子](#完整例子-6)
+- [数据查询](#数据查询)
+  - [语法](#语法-8)
+  - [1. WHERE LIKE 模式匹配](#1-where-like-模式匹配)
+    - [格式](#格式-7)
+    - [例子](#例子-12)
+  - [2. WHERE 判空](#2-where-判空)
+    - [格式](#格式-8)
+    - [例子](#例子-13)
+  - [3. FROM ... WHERE 连接](#3-from--where-连接)
+    - [格式](#格式-9)
+    - [例子](#例子-14)
+  - [4. JOIN…ON连接](#4-joinon连接)
+    - [格式](#格式-10)
+    - [说明](#说明)
+    - [例子](#例子-15)
+  - [完整例子](#完整例子-7)
 
 # 数据类型
 ## 1. 精确数字  
@@ -119,7 +135,7 @@
 
 @: 局部变量  
 @@: 全局变量  
-### 例子：  
+### 例子  
 ```SQL
 DECLARE @a INT  
 DECLARE @b NCHAR(10)
@@ -127,14 +143,14 @@ DECLARE @b NCHAR(10)
 
 ## 2. 变量赋值  
    `SET @变量名 = 值`  
-### 例子:  
+### 例子  
 ```SQL
 SET @a = 5
 SET @b = 'abc'
 ```  
 ## 3. 变量输出  
    `PRINT @变量名`  
-### 例子：  
+### 例子  
 ```SQL
 PRINT @a
 ```
@@ -144,13 +160,13 @@ PRINT @a
 
 # LEN(·) 函数
    返回字符串的字符数  
-### 例子：  
+### 例子  
  `LEN('abc123你好!') = 9`  
  `LEN('') = 0`
 
 # DATALENGTH(·) 函数
    返回变量的字节数
-### 例子：
+### 例子
  ```SQL
  DECLARE @a INT
  DATALENGTH(@a) = 4
@@ -176,7 +192,7 @@ CREATE DATABASE 数据库名称
 ### 文件后缀：  
 主数据文件 `.mdf`  
 次数据文件 `.ndf`  
-### 格式：
+### 格式
 ```SQL
 [ PRIMARY ] --可选的是否是主数据文件
 ( 
@@ -187,7 +203,7 @@ FILENAME = '文件物理路径' --数据文件的物理文件路径
 [ , FILEGROWTH = 增长幅度 [ KB | MB | GB | TB| % ] ] --数据文件的增长
 )
 ```  
-### 例子：  
+### 例子  
 ```SQL
 PRIMARY (
 NAME = file1,
@@ -203,11 +219,11 @@ FILEGROWTH = 5%
 ## 2. filegroup 文件组  
    通过将不同表或索引放入不同文件组，可以根据磁盘特性或数据访问频率优化性能  
 ### 文件后缀：  `.ndf`
-### 格式：
+### 格式
    ```SQL
    FILEGROUP 文件组名称 <filespec> [ ,...n ]
    ```
-### 例子：  
+### 例子  
 ```SQL
 FILEGROUP Group1 
 (
@@ -223,11 +239,11 @@ FILEGROWTH = 5%
 ## 3. 日志文件  
    记录数据库的日志信息
 ### 文件后缀：`.ldf`  
-### 格式：
+### 格式
 ```SQL
 [ LOG ON { < filespec > [ ,...n ] } ]
 ```  
-### 例子：  
+### 例子  
 ```SQL
 LOG ON
 (
@@ -239,7 +255,7 @@ FILEGROWTH = 2MB
 )
 ```
 
-## 4. 完整例子：
+## 4. 完整例子
 ```SQL
 CREATE DATABASE MyDatabase
 ON
@@ -289,7 +305,7 @@ ALTER DATABASE 数据库名称
 ```  
 ## 1. add_or_modify_files 添加或修改文件  
 用于对数据库文件进行变更，包括添加、修改或移除文件（数据或日志）  
-### 格式：
+### 格式
 ```SQL
 ADD FILE <filespec> [ ,...n ]  --添加数据文件
       [ TO FILEGROUP { filegroup_name } ] --可选的加入文件组
@@ -297,7 +313,7 @@ ADD FILE <filespec> [ ,...n ]  --添加数据文件
 | REMOVE FILE logical_file_name  --删除文件 
 | MODIFY FILE <filespec> --修改文件
 ```
-### 例子：
+### 例子
 ```SQL
 -- 添加文件
 ADD FILE 
@@ -334,7 +350,7 @@ FILEGROWTH = 20MB
 )
 ```  
 ## 2. add_or_modify_filegroups 添加或修改文件组  
-### 格式：
+### 格式
 ```SQL
 ADD FILEGROUP filegroup_name  -- 添加文件组
       [ CONTAINS FILESTREAM ] -- 表示此组用于存储 FILESTREAM 类型数据
@@ -346,14 +362,14 @@ ADD FILEGROUP filegroup_name  -- 添加文件组
       | NAME = new_filegroup_name -- 重命名文件组 
     }
 ```
-### 例子:
+### 例子
 ```SQL
 ADD FILEGROUP Group3
 MODIFY FILEGROUP Group3 READONLY
 MODIFY FILEGROUP Group3 NAME = Group666
 ```  
 
-## 完整例子：
+## 完整例子
 ```SQL
 -- 1
 ALTER DATABASE MyDatabase
@@ -373,19 +389,19 @@ MODIFY FILEGROUP Group3 READONLY;
 
 # 删除数据库
 
-## 语法：
+## 语法
 ```SQL
 DROP DATABASE { 数据库名称 | 数据库快照名称 } [,...n ] 
 ```
 
-## 完整例子：
+## 完整例子
 
 ```SQL
 DROP DATABASE MyDatabase;
 ```
 # 分离数据库
 
-## 语法：
+## 语法
 ```SQL
 EXEC sp_detach_db 数据库名称
 ```
@@ -409,7 +425,7 @@ EXEC sp_detach_db MyDatabase;
 
 # 附加数据库
 
-## 语法：
+## 语法
 ```SQL
 CREATE DATABASE 数据库名称
 ON
@@ -419,7 +435,7 @@ FILENAME = '主数据文件物理路径'
 FOR ATTACH
 ```
 
-## 完整例子：
+## 完整例子
 ```SQL
 CREATE DATABASE MyDatabase1
 ON
@@ -431,7 +447,7 @@ FOR ATTACH;
 
 # 创建表
 
-## 语法：
+## 语法
 ```SQL
 -- 创建表，给出表名
 CREATE TABLE [数据库名.[模式名]. | 模式名.] 表名 
@@ -461,7 +477,7 @@ CREATE TABLE [数据库名.[模式名]. | 模式名.] 表名
 
 ## 1. column_definition 列定义
 用于定义每一列的具体属性，可以重复多次以定义不同的列
-### 格式：
+### 格式
 ```SQL
 列名 列数据类型
 [ FILESTREAM ] --表示存储在文件系统（大文件用）
@@ -477,7 +493,7 @@ CREATE TABLE [数据库名.[模式名]. | 模式名.] 表名
 [ <column_constraint> [ ...n ] ] -- 指定列级约束, 解释见后
 [ SPARSE ] -- 用于节省大量 NULL 值的列的存储空间
 ```
-### 例子：
+### 例子
 ```SQL
 -- 多个列定义，逗号隔开
 CustomerID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -533,7 +549,7 @@ REFERENCES Customers(ID)
 CONSTRAINT Cons5 CHECK (Price >= 0 AND Price <= 10000)
 ```
 
-## 完整例子：
+## 完整例子
 ```SQL
 USE MyDatabase1; -- 先选择一个数据库
 
@@ -553,7 +569,7 @@ ON [PRIMARY] -- 表数据存储位置
 
 # 修改表
 
-## 语法：
+## 语法
 ```SQL
 ALTER TABLE [数据库名.[架构名].|架构名.]表名 
 { 
@@ -583,7 +599,7 @@ ALTER TABLE [数据库名.[架构名].|架构名.]表名
 }
 ```
 
-## 完整例子：
+## 完整例子
 ```SQL
 -- 修改Name列为 50长度的NCHAR
 ALTER TABLE MyClass
@@ -616,14 +632,169 @@ DROP COLUMN Score;
 
 # 删除表
 
-## 语法：
+## 语法
 ```SQL
 DROP TABLE [ 数据库名 . [ 架构名 ] . | 架构名 . ]
       表名 [ ,...n ]
 ;
 ```
 
-## 完整例子：
+## 完整例子
 ```SQL
 DROP TABLE MyDatabase1.dbo.MyClass;
+```
+
+# 数据查询
+
+## 语法
+```SQL
+SELECT 
+[
+  [TOP n [PERCENT]]  -- 列出前n行或前n%
+  | [DISTINCT] -- 消除重复行
+] 
+select_list[=
+CASE [列名]
+  WHEN 表达式 THEN 表达式 [...n] 
+  [ELSE 表达式] --所有WHEN都不成立的情况 
+END
+]
+[{= | AS | 空格} 别名] --结果显示的列的名称
+[,...n] -- 查询的列, CASE 可以进行逻辑判断并映射
+
+[ INTO 新表名 ] -- 的结果存储到一个新的表中
+[ FROM table_source ] -- 单表、多个表（通过连接），或者子查询
+[ WHERE search_condition ] --查询的条件
+[ GROUP BY group_by_expression] -- 将结果按某些字段进行分组
+[ HAVING search_condition] -- 对分组的结果进行过滤，与 WHERE 不同，HAVING 是针对聚合结果的条件筛选
+[ ORDER BY order_expression [ ASC | DESC ] ] -- 结果的排序方式  ASC:默认，升序   DESC:降序
+```
+
+## 1. WHERE LIKE 模式匹配
+
+### 格式
+```SQL
+WHERE col LIKE expression
+```
+| 通配符   | 说明   |
+| ------ | ------ |
+| % | 匹配0个或多个任意字符 |
+| _ | 匹配1个任意字符 |
+| [ ] | 匹配集合中的任意单个字符 |
+| [^ ] | 不匹配集合中的任意单个字符 |
+
+### 例子
+```SQL
+-- 以赵开始
+WHERE Name LIKE '赵%'
+
+-- 不以张开始
+WHERE Name LIKE '[^张]%'
+
+-- 中间两字符任意
+WHERE Author LIKE 'K__n'
+```
+
+## 2. WHERE 判空
+
+### 格式
+```SQL
+WHERE col IS NULL
+```
+
+### 例子
+```SQL
+WHERE Name IS NULL
+```
+
+## 3. FROM ... WHERE 连接
+
+### 格式
+```SQL
+FROM table_name [,table_name,…]
+WHERE condition
+```
+### 例子
+```SQL
+SELECT Name, SchoolName
+FROM Student, School
+WHERE Student.SchoolID = School.SchoolID
+
+SELECT Name, SchoolName, Course.CourseName, Mark.Score
+FROM Student,School,Mark,Course
+WHERE Student.StudentID = Mark.StudentID
+AND Course.CourseID = Mark.CourseID
+AND School.SchoolName = '计算机学院'
+```
+## 4. JOIN…ON连接
+
+### 格式
+```SQL
+FROM table_name 
+[ INNER | { LEFT | RIGHT | FULL }  [ CROSS ] JOIN table_name [JOIN table_name…]
+ON condition --连接条件
+WHERE condition --选择条件
+```
+
+### 说明
++ INNER表示内连接，是系统默认的连接方式。
++ 外连接分为左外连接（LEFT）、右外连接（RIGHT）、完全外连接（FULL）。左外连接的结果集中除了包括满足条件的行外，还包括左表所有的行。右外连接的结果集中除了包括满足条件的行外，还包括右表所有的行。完全外连接的结果集中除了包括满足条件的行外，还包括左右两表所有的行。不匹配则补 NULL
++ CROSS表示交叉连接，即生成一个笛卡尔积，即每个左表行与右表所有行组合。
+
+### 例子
+```SQL
+-- 内连接
+SELECT Name,CourseName,Score
+FROM Student JOIN Mark JOIN Course
+ON Course.CourseID=Mark.CourseID
+ON Student.StudentID=Mark.StudentID;
+
+-- 右外连接
+SELECT Name,Mark.CourseID
+FROM Mark RIGHT JOIN Student
+ON Mark.StudentID=Student.StudentID;
+```
+
+
+## 完整例子
+```SQL
+-- 查询表中的所有数据
+SELECT * FROM employees;
+
+-- 列出name 和 salary列，salary的值+10，且年龄>30
+SELECT name, salary + 10
+FROM employees
+WHERE age > 30;
+
+-- 复杂例子
+SELECT d.name AS department_name, COUNT(*) = emp_count, AVG(e.salary) avg_salary
+INTO dept_summary
+FROM employees e
+JOIN departments d ON e.department_id = d.id
+WHERE e.age >= 25
+GROUP BY d.name
+HAVING AVG(e.salary) > 8000
+ORDER BY emp_count DESC;
+
+-- 映射Score到RANK
+SELECT StudentID,CourseID,Score,RANK=
+CASE
+  WHEN Score>=80 THEN '优秀'
+  WHEN Score>=60 THEN '及格'
+  ELSE '不及格'
+END
+FROM Mark;
+
+-- 映射Sex
+SELECT Name,性别=
+CASE Sex
+  WHEN '男' THEN '男生'
+  WHEN '女' THEN '女生'
+END
+FROM Student;
+
+-- 将所有性别的值列出去重
+SELECT DISTINCT Sex AS '性别'
+FROM Author;
+
 ```
