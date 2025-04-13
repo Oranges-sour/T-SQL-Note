@@ -92,13 +92,19 @@
     - [例子](#例子-16)
   - [6. 子查询](#6-子查询)
     - [语法](#语法-10)
-  - [x. 杂项](#x-杂项)
+    - [相关子查询与无关子查询](#相关子查询与无关子查询)
+    - [例子](#例子-17)
+  - [7. 集合操作](#7-集合操作)
+    - [语法](#语法-11)
+    - [集合合并 UNION 与 UNION ALL](#集合合并-union-与-union-all)
+    - [集合差 EXCEPT](#集合差-except)
+    - [集合交 INTERSECT](#集合交-intersect)
+  - [X. 杂项](#x-杂项)
     - [WHERE ... LIKE 模式匹配](#where--like-模式匹配)
       - [格式](#格式-11)
-      - [例子](#例子-17)
-    - [WHERE 判空](#where-判空)
-      - [格式](#格式-12)
       - [例子](#例子-18)
+    - [WHERE 判空](#where-判空)
+      - [格式 \& 例子](#格式--例子)
   - [完整例子](#完整例子-7)
 
 # 数据类型
@@ -862,9 +868,184 @@ NULL	|NULL|	5|所有学校的总人数
 
 ### 语法
 
+在 SELECT 列表中的标量子查询：
+```SQL
+SELECT 
+    column1,
+    (SELECT expression FROM table WHERE conditions) AS alias
+FROM table;
+```
 
+在 FROM 中作为派生表：
+```SQL
+SELECT columns
+FROM (
+    SELECT columns FROM table WHERE conditions
+) AS alias;
+```
 
-## x. 杂项
+在 WHERE 或 HAVING 子句中使用：
+```SQL
+-- 比较符号，标量子查询
+SELECT columns
+FROM table
+WHERE column [= | >|< | > = |<= |<>] (SELECT expression FROM table WHERE conditions);
+
+-- IN / NOT IN，多值子查询
+SELECT columns
+FROM table
+WHERE column [NOT] IN (SELECT column FROM table WHERE conditions);
+
+-- EXISTS / NOT EXISTS
+SELECT columns
+FROM table t1
+WHERE [NOT] EXISTS (
+    SELECT 1 FROM table t2 WHERE t2.foreign_key = t1.primary_key
+); -- SELECT 1： 它不表示从表中选取某个字段，而是返回一个固定值 1. 表示只关心有没有数据，不关心具体数据
+```
+### 相关子查询与无关子查询
+无关子查询是可以独立于外层查询单独执行的子查询。它不会引用外层查询的任何列。  
+  特点：
+  + 先执行子查询，结果作为外层查询的输入；
+
+  + 可作为常量使用（如果返回单一值）或集合（用于 IN、EXISTS 等）；
+
+  + 可嵌套在 SELECT、WHERE、FROM 等多个位置；
+
+  + 执行计划中只运行一次。  
+
+例子
+```SQL
+SELECT DeptAvg.DepartmentID, DeptAvg.AvgSalary
+FROM (
+    SELECT DepartmentID, AVG(Salary) AS AvgSalary
+    FROM Employees
+    GROUP BY DepartmentID
+) AS DeptAvg
+WHERE DeptAvg.AvgSalary > 8000;
+```
+相关子查询是依赖于外层查询的值，不能独立运行的子查询。通常子查询中会引用外层查询的列。  
+  特点：
+  + 每处理外层查询的一行，子查询都会被重新执行一次；
+
+  + 执行成本较高，尤其在数据量大时；
+
+  + 常见于 WHERE、SELECT 或 HAVING 中的判断逻辑；
+
+  + 适用于每一行需要对其上下文进行判断的场景。  
+
+例子
+```SQL
+SELECT Name, Salary
+FROM Employees E
+WHERE Salary > (
+    SELECT AVG(Salary)
+    FROM Employees
+    WHERE DepartmentID = E.DepartmentID
+);
+```
+### 例子
+```SQL
+-- 找出选修了《计算机网络》课程的学生的姓名
+-- 利用上一层返回的学号集合，从 Student 表中找出这些学生的姓名 Name
+SELECT Name
+FROM Student
+WHERE StudentID IN
+( -- 使用最内层查询结果，筛选出在 Mark 表中选修了这些课程（即“计算机网络”）的学生编号 StudentID
+  SELECT StudentID
+  FROM Mark
+  WHERE CourseID IN
+  ( --查询课程表 Course 中，课程名称为“计算机网络”的课程编号 CourseID
+    SELECT CourseID
+    FROM Course
+    WHERE CourseName='计算机网络'
+  )
+);
+
+-- 查询不属于“物理学院”的学生中，出生日期早于所有“物理学院”学生的学生姓名及其学院名
+SELECT Name, SchoolName
+FROM Student, School
+WHERE Student.SchoolID = School.SchoolID
+  AND SchoolName <> '物理学院'
+  AND Birthday < ALL -- ALL 的语义：表达式要对集合中“所有元素”都成立, SOME（或ANY）表示结果集中的任一数据，如果有一个满足关系表达式就输出
+   (
+    -- 得到物理学院所有学生的出生日期列表
+    SELECT Birthday
+    FROM Student, School
+    WHERE Student.SchoolID = School.SchoolID
+      AND SchoolName = '物理学院'
+);
+```
+
+## 7. 集合操作
+
+集合操作用于对多个 SELECT 语句的结果进行合并、取交集或差集处理。
+
+### 语法
+```SQL
+-- UNION 与 UNION ALL
+<查询1>
+UNION [ALL]
+<查询2>
+[UNION [ALL] <查询3> ...]
+
+-- EXCEPT
+<查询1>
+EXCEPT
+<查询2>
+
+-- INTERSECT
+<查询1>
+INTERSECT
+<查询2>
+```
+
+### 集合合并 UNION 与 UNION ALL
+
+将多个查询结果合并成一个结果集。
+
+基本规则：
++ 所有参与合并的查询结果集 列数必须相同。
++ 对应列的 数据类型必须兼容（例如不能将字符串和数值型直接合并）。
++ 合并时默认去除重复行，除非使用 UNION ALL 明确要求保留所有行（包括重复行）。
+
+例子
+```SQL
+-- 将员工与客户的姓名合并为一个结果集，默认去重
+SELECT name FROM employees
+UNION
+SELECT name FROM customers;
+```
+
+### 集合差 EXCEPT
+返回左侧查询中存在但右侧查询中不存在的行（去重后）
+基本规则：
++ 列数与数据类型必须匹配。
++ 结果集自动去重。
+
+例子
+```SQL
+-- 查询只在员工中出现、但不在客户中的姓名
+SELECT name FROM employees
+EXCEPT
+SELECT name FROM customers;
+```
+
+### 集合交 INTERSECT
+返回左右两个查询结果中都存在的行（去重后）
+基本规则：
++ 列数与数据类型必须匹配。
++ 结果集自动去重。
+
+例子
+```SQL
+-- 查询同时出现在员工和客户中的姓名
+SELECT name FROM employees
+INTERSECT
+SELECT name FROM customers;
+```
+
+## X. 杂项
 
 ### WHERE ... LIKE 模式匹配
 
@@ -893,13 +1074,10 @@ WHERE Author LIKE 'K__n'
 
 ### WHERE 判空
 
-#### 格式
+#### 格式 & 例子
 ```SQL
 WHERE col IS NULL
-```
 
-#### 例子
-```SQL
 WHERE Name IS NULL
 ```
 
