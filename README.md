@@ -73,19 +73,32 @@
   - [完整例子](#完整例子-6)
 - [数据查询](#数据查询)
   - [语法](#语法-8)
-  - [1. WHERE LIKE 模式匹配](#1-where-like-模式匹配)
+  - [1. 数据统计](#1-数据统计)
     - [格式](#格式-7)
     - [例子](#例子-12)
-  - [2. WHERE 判空](#2-where-判空)
+  - [2. ORDER BY 排序](#2-order-by-排序)
     - [格式](#格式-8)
     - [例子](#例子-13)
   - [3. FROM ... WHERE 连接](#3-from--where-连接)
     - [格式](#格式-9)
     - [例子](#例子-14)
-  - [4. JOIN…ON连接](#4-joinon连接)
+  - [4. JOIN … ON 连接](#4-join--on-连接)
     - [格式](#格式-10)
     - [说明](#说明)
     - [例子](#例子-15)
+  - [5. GROUP BY 分组](#5-group-by-分组)
+    - [语法](#语法-9)
+    - [说明](#说明-1)
+    - [例子](#例子-16)
+  - [6. 子查询](#6-子查询)
+    - [语法](#语法-10)
+  - [x. 杂项](#x-杂项)
+    - [WHERE ... LIKE 模式匹配](#where--like-模式匹配)
+      - [格式](#格式-11)
+      - [例子](#例子-17)
+    - [WHERE 判空](#where-判空)
+      - [格式](#格式-12)
+      - [例子](#例子-18)
   - [完整例子](#完整例子-7)
 
 # 数据类型
@@ -647,6 +660,7 @@ DROP TABLE MyDatabase1.dbo.MyClass;
 # 数据查询
 
 ## 语法
+一些细节部分未完整列出，见下详细解释
 ```SQL
 SELECT 
 [
@@ -670,20 +684,202 @@ END
 [ ORDER BY order_expression [ ASC | DESC ] ] -- 结果的排序方式  ASC:默认，升序   DESC:降序
 ```
 
-## 1. WHERE LIKE 模式匹配
+## 1. 数据统计
 
 ### 格式
 ```SQL
-WHERE col LIKE expression
+SUM(col) -- 列求和
+AVG(col) -- 列平均
+MIN(col) -- 列最小
+MAX(col) -- 列最大
+COUNT(*) -- 行个数
+COUNT(col) -- 列中取值不为空的项个数，不考虑是否重复
 ```
-| 通配符   | 说明   |
-| ------ | ------ |
-| % | 匹配0个或多个任意字符 |
-| _ | 匹配1个任意字符 |
-| [ ] | 匹配集合中的任意单个字符 |
-| [^ ] | 不匹配集合中的任意单个字符 |
 
 ### 例子
+```SQL
+SELECT SUM(Score) AS '总分',AVG(Score) AS '平均分',MAX(Score) AS '最高分',
+MIN(Score) AS '最低分'
+
+SELECT COUNT(*) AS '作者人数', COUNT(Provinces) AS '登记有所在省份的作者人数'
+```
+
+## 2. ORDER BY 排序
+
+### 格式
+```SQL
+ORDER BY column1 [ASC | DESC], column2 [ASC | DESC], ...
+```
++ 可以使用 SELECT 子句中定义的别名作为 column
++ 可以指定多个列进行排序，次序优先级从左到右
+
+### 例子
+```SQL
+-- 按 salary 降序
+ORDER BY salary DESC
+
+-- 先按 salary 降序排列，若工资相同则再按 name 升序排列
+ORDER BY salary DESC, name ASC
+
+--别名排序
+SELECT salary * 1.1 AS adjusted_salary
+FROM employees
+ORDER BY adjusted_salary DESC; 
+```
+
+## 3. FROM ... WHERE 连接
+
+隐式连接（Implicit Join）的写法。等价于将表与表进行笛卡尔积（Cartesian Product），并在 WHERE 子句中加以限制，从而只保留满足条件的记录
+
+### 格式
+```SQL
+FROM table_name [,table_name, … ]
+WHERE condition
+```
+### 例子
+```SQL
+-- 找出每个学生所就读的学校名
+SELECT Name, SchoolName
+FROM Student, School
+WHERE Student.SchoolID = School.SchoolID
+
+-- “计算机学院”学生所修课程的成绩及对应课程名称
+SELECT Name, SchoolName, Course.CourseName, Mark.Score
+FROM Student,School,Mark,Course
+WHERE Student.StudentID = Mark.StudentID
+AND Course.CourseID = Mark.CourseID
+AND School.SchoolName = '计算机学院'
+```
+## 4. JOIN … ON 连接
+
+### 格式
+```SQL
+FROM table_name 
+{ 
+[ INNER | { LEFT | RIGHT | FULL } ] [ CROSS ] 
+JOIN table_name 
+ON condition --连接条件
+} [...,n]
+WHERE condition --选择条件
+```
+
+### 说明
++ INNER表示内连接，是系统默认的连接方式。
++ 外连接分为左外连接（LEFT）、右外连接（RIGHT）、完全外连接（FULL）。
+  - 左外连接的结果集中除了包括满足条件的行外，还包括左表所有的行。
+  - 右外连接的结果集中除了包括满足条件的行外，还包括右表所有的行。
+  - 完全外连接的结果集中除了包括满足条件的行外，还包括左右两表所有的行。
+  - 不匹配则补 NULL
++ CROSS表示交叉连接，即生成一个笛卡尔积，即每个左表行与右表所有行组合。
++ ON 与 WHERE 的区别：ON在连接时进行判断，WHERE在连接后的临时表中进行判断筛选
+
+### 例子
+```SQL
+-- 内连接，查询返回每位已选课学生的姓名、课程名称及对应成绩
+SELECT Student.Name, Course.CourseName, Mark.Score
+FROM Student
+JOIN Mark ON Student.StudentID = Mark.StudentID
+JOIN Course ON Course.CourseID = Mark.CourseID;
+
+
+-- 右外连接，查询返回所有学生的姓名及其所选课程的编号，即使某没有选课，其课程编号也会显示为 NULL
+SELECT Name,Mark.CourseID
+FROM Mark 
+RIGHT JOIN Student
+ON Mark.StudentID = Student.StudentID;
+```
+
+## 5. GROUP BY 分组
+
+对查询结果按照某些字段进行分组，以便结合 聚合函数（如 SUM()、COUNT()、AVG() 等）进行统计分析
+
+### 语法
+```SQL
+GROUP BY column_name -- 对查询结果按照某一列或多列进行分组
+[ HAVING condition ] -- 对分组后的结果进一步过滤（区别于 WHERE，HAVING 是作用在聚合之后的分组结果上）
+| [ WITH CUBE | ROLLUP ] -- 对分组结果进一步进行多维统计或汇总
+```
+### 说明
++ WITH CUBE 和 ROLLUP
+  + ROLLUP：生成层次汇总，可以逐层汇总每一个分组的结果，最终得到总汇
+  + CUBE：生成所有可能的分组组合的汇总，提供更全面的多维分析
++ GROUP BY后的column_name必须出现在SELECT后的select_list中，或者出现在聚合函数中，否则不允许分组
++ 如果 GROUP BY 后跟多个列，如：GROUP BY A, B，那么是先按 A 分组，在 A 相同的组内再按 B 分组。
++ GROUP BY 无聚合函数时等同于 DISTINCT
+
+### 例子
+```SQL
+-- 返回人数超过10人的部门
+SELECT dept_id, COUNT(*) 
+FROM employees 
+GROUP BY dept_id 
+HAVING COUNT(*) > 10;
+
+-- 对CourseID进行分组，并按分组后的 组 平均成绩进行降序
+SELECT CourseID,SUM(Score) AS '总分',AVG(Score) AS '平均分'
+FROM Mark
+GROUP BY Mark.CourseID
+ORDER BY AVG(Score) DESC
+```
+```SQL
+-- 查询统计了每个课程的学生人数，并通过 WITH CUBE 生成了所有课程的总学生人数汇总
+SELECT CourseName, COUNT(*) AS '人数'
+FROM Course, Mark
+WHERE Course.CourseID = Mark.CourseID
+GROUP BY CourseName
+WITH CUBE
+```
+可能的结果：
+|CourseName|	人数|WITH CUBE 解释|  
+|-----|-----|-----|
+|数学	|2|
+|物理	|2|
+|化学	|3|
+|NULL	|7|生成的总人数
+```SQL
+-- 统计每所学校中不同性别的学生人数，并通过 WITH ROLLUP 生成汇总结果
+SELECT SchoolName, Sex, COUNT(*) AS '人数'
+FROM Student, School
+WHERE Student.SchoolID = School.SchoolID
+GROUP BY SchoolName, Sex
+WITH ROLLUP
+```
+可能的结果：
+|SchoolName	|Sex|	人数|WITH ROLLUP 解释|
+|---|---|---|---|
+学校A	|男|	1|
+学校A	|女	|1|
+学校A	|NULL|	2|每所学校的总人数
+学校B	|男|	2|
+学校B	|女|	1|
+学校B	|NULL|	3|每所学校的总人数
+NULL	|NULL|	5|所有学校的总人数
+
+
+
+## 6. 子查询
+子查询（Subquery）是嵌套在其他查询语句（如 SELECT、FROM、WHERE、HAVING 或 JOIN 子句中）的查询。子查询的作用是为外部查询提供中间结果
+
+### 语法
+
+
+
+## x. 杂项
+
+### WHERE ... LIKE 模式匹配
+
+#### 格式
+```SQL
+WHERE col LIKE expression
+```
+| 通配符 | 说明                       |
+| ------ | -------------------------- |
+| %      | 匹配0个或多个任意字符      |
+| _      | 匹配1个任意字符            |
+| [ ]    | 匹配集合中的任意单个字符   |
+| [^ ]   | 不匹配集合中的任意单个字符 |
+
+#### 例子
 ```SQL
 -- 以赵开始
 WHERE Name LIKE '赵%'
@@ -695,64 +891,16 @@ WHERE Name LIKE '[^张]%'
 WHERE Author LIKE 'K__n'
 ```
 
-## 2. WHERE 判空
+### WHERE 判空
 
-### 格式
+#### 格式
 ```SQL
 WHERE col IS NULL
 ```
 
-### 例子
+#### 例子
 ```SQL
 WHERE Name IS NULL
-```
-
-## 3. FROM ... WHERE 连接
-
-### 格式
-```SQL
-FROM table_name [,table_name,…]
-WHERE condition
-```
-### 例子
-```SQL
-SELECT Name, SchoolName
-FROM Student, School
-WHERE Student.SchoolID = School.SchoolID
-
-SELECT Name, SchoolName, Course.CourseName, Mark.Score
-FROM Student,School,Mark,Course
-WHERE Student.StudentID = Mark.StudentID
-AND Course.CourseID = Mark.CourseID
-AND School.SchoolName = '计算机学院'
-```
-## 4. JOIN…ON连接
-
-### 格式
-```SQL
-FROM table_name 
-[ INNER | { LEFT | RIGHT | FULL }  [ CROSS ] JOIN table_name [JOIN table_name…]
-ON condition --连接条件
-WHERE condition --选择条件
-```
-
-### 说明
-+ INNER表示内连接，是系统默认的连接方式。
-+ 外连接分为左外连接（LEFT）、右外连接（RIGHT）、完全外连接（FULL）。左外连接的结果集中除了包括满足条件的行外，还包括左表所有的行。右外连接的结果集中除了包括满足条件的行外，还包括右表所有的行。完全外连接的结果集中除了包括满足条件的行外，还包括左右两表所有的行。不匹配则补 NULL
-+ CROSS表示交叉连接，即生成一个笛卡尔积，即每个左表行与右表所有行组合。
-
-### 例子
-```SQL
--- 内连接
-SELECT Name,CourseName,Score
-FROM Student JOIN Mark JOIN Course
-ON Course.CourseID=Mark.CourseID
-ON Student.StudentID=Mark.StudentID;
-
--- 右外连接
-SELECT Name,Mark.CourseID
-FROM Mark RIGHT JOIN Student
-ON Mark.StudentID=Student.StudentID;
 ```
 
 
