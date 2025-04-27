@@ -65,10 +65,10 @@
     - [格式](#格式-6)
     - [例子](#例子-11)
   - [完整例子](#完整例子-4)
-- [修改表](#修改表)
+- [修改与删除表](#修改与删除表)
   - [语法](#语法-6)
   - [完整例子](#完整例子-5)
-- [删除表](#删除表)
+- [数据修改](#数据修改)
   - [语法](#语法-7)
   - [完整例子](#完整例子-6)
 - [数据查询](#数据查询)
@@ -586,10 +586,11 @@ ON [PRIMARY] -- 表数据存储位置
 ;
 ```
 
-# 修改表
+# 修改与删除表
 
 ## 语法
 ```SQL
+-- 修改表
 ALTER TABLE [数据库名.[架构名].|架构名.]表名 
 { 
   ALTER COLUMN 列名 
@@ -615,7 +616,12 @@ ALTER TABLE [数据库名.[架构名].|架构名.]表名
     [ WITH ( <drop_clustered_constraint_option> [ ,...n ] ) ]
     | COLUMN 列名
   } [ ,...n ] 
-}
+};
+
+-- 删除表
+DROP TABLE [ 数据库名 . [ 架构名 ] . | 架构名 . ]
+      表名 [ ,...n ]
+;
 ```
 
 ## 完整例子
@@ -632,10 +638,6 @@ ALTER COLUMN Age DECIMAL(10,2);
 ALTER TABLE MyClass
 ALTER COLUMN Age ADD SPARSE;
 
--- 为表增加CHECK属性
-ALTER TABLE MyClass
-WITH CHECK;
-
 -- 增加列Score，总长10，小数精度2的DECIMAL
 ALTER TABLE MyClass
 ADD Score DECIMAL(10,2) NOT NULL;
@@ -644,24 +646,81 @@ ADD Score DECIMAL(10,2) NOT NULL;
 ALTER TABLE MyClass
 ADD CONSTRAINT ConsScoreCheck CHECK (Score >= 0 AND Score <= 150);
 
+-- StuID 列增加 UNIQUE属性
+ALTER TABLE MyClass
+ADD CONSTRAINT Uni1 UNIQUE (StuID);
+
+-- MyClass表的CourseID 列增加 外键约束
+-- MyClass.CourseID 的值必须是 Course.CouseID 的已有值
+ALTER TABLE MyClass
+ADD CONSTRAINT Fori FOREIGN KEY (CourseID) REFERENCES Course(CouseID);
+
 -- 删除列
 ALTER TABLE MyClass
 DROP COLUMN Score;
+
+-- 删除表
+DROP TABLE MyDatabase1.dbo.MyClass;
 ```
 
-# 删除表
+# 数据修改
 
 ## 语法
 ```SQL
-DROP TABLE [ 数据库名 . [ 架构名 ] . | 架构名 . ]
-      表名 [ ,...n ]
-;
+-- 插入行,可以一次性插入多行
+INSERT [INTO] table_name [(column1, column2, ...)] 
+VALUES (value1, value2, ...), (value1, value2, ...), ...n;
+
+-- 删除行
+DELETE FROM table_name
+[WHERE <search_condition>];
+
+
+-- 修改数据
+UPDATE table_name
+SET column1 = {expression | DEFAULT | NULL}, column2 = ...
+[WHERE <search_condition>];
 ```
 
 ## 完整例子
 ```SQL
-DROP TABLE MyDatabase1.dbo.MyClass;
+-- 一次插入三条学生记录
+INSERT INTO students (id, name, age, grade)
+VALUES 
+  (101, '张三', 18, 'A'),
+  (102, '李四', 19, 'B'),
+  (103, '王五', 17, 'A');
+
+-- 将所有成绩为A的学生插入到high_achievers表
+INSERT INTO high_achievers (student_id, name)
+SELECT id, name FROM students WHERE grade = 'A';
+
+-- 删除2023年1月1日之前且已取消的订单
+DELETE FROM orders
+WHERE order_date < '2023-01-01' AND status = '已取消';
+
+-- 删除所有属于北京部门的员工
+DELETE FROM employees
+WHERE department_id IN (
+    SELECT id FROM departments WHERE location = '北京'
+);
+
+-- 将所有电子产品价格设为120，增加库存100
+UPDATE products
+SET price = 120, stock = stock + 100
+WHERE category = '电子产品';
+
+-- 根据分数批量更新学生的等级
+UPDATE students
+SET grade = 
+    CASE 
+        WHEN score >= 90 THEN 'A'
+        WHEN score >= 80 THEN 'B'
+        WHEN score >= 70 THEN 'C'
+        ELSE 'D'
+    END;
 ```
+
 
 # 数据查询
 
@@ -836,12 +895,12 @@ GROUP BY CourseName
 WITH CUBE
 ```
 可能的结果：
-|CourseName|	人数|WITH CUBE 解释|  
-|-----|-----|-----|
-|数学	|2|
-|物理	|2|
-|化学	|3|
-|NULL	|7|生成的总人数
+| CourseName | 人数 | WITH CUBE 解释 |
+| ---------- | ---- | -------------- |
+| 数学       | 2    |
+| 物理       | 2    |
+| 化学       | 3    |
+| NULL       | 7    | 生成的总人数   |
 ```SQL
 -- 统计每所学校中不同性别的学生人数，并通过 WITH ROLLUP 生成汇总结果
 SELECT SchoolName, Sex, COUNT(*) AS '人数'
@@ -851,15 +910,15 @@ GROUP BY SchoolName, Sex
 WITH ROLLUP
 ```
 可能的结果：
-|SchoolName	|Sex|	人数|WITH ROLLUP 解释|
-|---|---|---|---|
-学校A	|男|	1|
-学校A	|女	|1|
-学校A	|NULL|	2|每所学校的总人数
-学校B	|男|	2|
-学校B	|女|	1|
-学校B	|NULL|	3|每所学校的总人数
-NULL	|NULL|	5|所有学校的总人数
+| SchoolName | Sex  | 人数 | WITH ROLLUP 解释 |
+| ---------- | ---- | ---- | ---------------- |
+| 学校A      | 男   | 1    |
+| 学校A      | 女   | 1    |
+| 学校A      | NULL | 2    | 每所学校的总人数 |
+| 学校B      | 男   | 2    |
+| 学校B      | 女   | 1    |
+| 学校B      | NULL | 3    | 每所学校的总人数 |
+| NULL       | NULL | 5    | 所有学校的总人数 |
 
 
 
