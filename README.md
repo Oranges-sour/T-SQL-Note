@@ -106,6 +106,18 @@
     - [WHERE 判空](#where-判空)
       - [格式 \& 例子](#格式--例子)
   - [完整例子](#完整例子-7)
+- [创建索引](#创建索引)
+  - [语法](#语法-12)
+  - [语句参数详解与补充](#语句参数详解与补充)
+    - [1. `UNIQUE`](#1-unique)
+    - [2. `CLUSTERED` | `NONCLUSTERED`](#2-clustered--nonclustered)
+    - [3. `ON <object> ( column [ASC|DESC] [,...n] )`](#3-on-object--column-ascdesc-n-)
+    - [4. `INCLUDE ( column_name [ ,...n ] )`](#4-include--column_name--n--)
+    - [5. `WHERE <filter_predicate>`](#5-where-filter_predicate)
+    - [6. `WITH ( <relational_index_option> [ ,...n ] )`](#6-with--relational_index_option--n--)
+    - [7. `ON { partition_scheme_name ( column_name ) | filegroup_name | default }`](#7-on--partition_scheme_name--column_name---filegroup_name--default-)
+    - [8. `FILESTREAM_ON { filestream_filegroup_name | partition_scheme_name | "NULL" }`](#8-filestream_on--filestream_filegroup_name--partition_scheme_name--null-)
+  - [完整例子](#完整例子-8)
 
 # 数据类型
 ## 1. 精确数字  
@@ -646,6 +658,10 @@ ADD Score DECIMAL(10,2) NOT NULL;
 ALTER TABLE MyClass
 ADD CONSTRAINT ConsScoreCheck CHECK (Score >= 0 AND Score <= 150);
 
+-- 添加默认值约束
+ALTER TABLE MyClass
+ADD CONSTRAINT ConsCourse DEFAULT 4 FOR Score;
+
 -- StuID 列增加 UNIQUE属性
 ALTER TABLE MyClass
 ADD CONSTRAINT Uni1 UNIQUE (StuID);
@@ -1181,5 +1197,99 @@ FROM Student;
 -- 将所有性别的值列出去重
 SELECT DISTINCT Sex AS '性别'
 FROM Author;
+```
 
+#  创建索引
+## 语法
+```SQL
+CREATE 
+[ UNIQUE ] 
+[ CLUSTERED | NONCLUSTERED ] 
+INDEX index_name 
+    ON <object> ( column [ ASC | DESC ] [ ,...n ] ) 
+    [ INCLUDE ( column_name [ ,...n ] ) ]
+    [ WHERE <filter_predicate> ]
+    [ WITH ( <relational_index_option> [ ,...n ] ) ]
+    [ ON { partition_scheme_name ( column_name ) 
+         | filegroup_name 
+         | default 
+         }
+    ]
+    [ FILESTREAM_ON { filestream_filegroup_name | partition_scheme_name | "NULL" } ]
+```
+## 语句参数详解与补充
+
+### 1. `UNIQUE`
+- 含义：指定索引中的每个键值必须唯一，防止重复数据。
+- 补充说明：唯一索引常用于实现唯一性约束，例如邮箱、身份证号等场景。主键约束本质上会自动创建唯一聚集索引（如果表还没有聚集索引）。
+
+### 2. `CLUSTERED` | `NONCLUSTERED`
+- 含义：指定索引类型。
+    - `CLUSTERED`（聚集索引）：表中数据的物理顺序与索引一致。每张表最多有一个聚集索引。
+    - `NONCLUSTERED`（非聚集索引）：索引结构与数据分开，逻辑顺序与物理存储无关。表可以有多个非聚集索引。
+- 补充说明：聚集索引通常用于主键或经常排序、范围查询的列。非聚集索引适合频繁查找的数据列。
+
+### 3. `ON <object> ( column [ASC|DESC] [,...n] )`
+- 含义：指定在哪个表（或视图）的哪些列上创建索引，可以指定排序方式（升序ASC或降序DESC）。
+- 补充说明：一个索引最多可以包含16列，且键长度有最大字节数限制（如900字节）。
+
+### 4. `INCLUDE ( column_name [ ,...n ] )`
+- 含义：为非聚集索引指定**包含列**，这些列不会参与索引排序，但会作为索引页的附加信息存储。
+- 补充说明：包含列可显著提升只查询部分非键列的性能，避免回表操作。只能用于非聚集索引。
+
+### 5. `WHERE <filter_predicate>`
+- 含义：用于创建**筛选索引**（Filtered Index），只对满足条件的行建立索引。
+- 补充说明：适合稀疏数据，提高空间利用率和查询效率。例如只为有效状态的数据建立索引。
+
+### 6. `WITH ( <relational_index_option> [ ,...n ] )`
+- 含义：为索引创建过程或属性设置额外选项。
+- 常用选项如：
+    - `FILLFACTOR = n`：指定叶级页的填充程度（1-100），有助于减少页分裂。
+    - `PAD_INDEX = ON|OFF`：是否为非叶级页设置相同填充因子。
+    - `IGNORE_DUP_KEY = ON|OFF`：插入重复键时是否报错。
+    - `STATISTICS_NORECOMPUTE = ON|OFF`：是否自动重建统计信息。
+    - `DROP_EXISTING = ON|OFF`：是否替换已有同名索引。
+    - `ONLINE = ON|OFF`：是否在线创建/重建索引（对业务影响小）。
+    - `DATA_COMPRESSION = { NONE | ROW | PAGE }`：数据压缩类型。
+- 补充说明：可以同时指定多个选项，使用逗号分隔。
+
+### 7. `ON { partition_scheme_name ( column_name ) | filegroup_name | default }`
+- 含义：指定索引的物理存储位置，可以是分区方案、文件组或默认。
+- 补充说明：分区索引适合大表的分区管理，有助于性能和维护。
+
+### 8. `FILESTREAM_ON { filestream_filegroup_name | partition_scheme_name | "NULL" }`
+- 含义：用于包含FILESTREAM数据的表，指定FILESTREAM数据的存储位置。
+- 补充说明：只适用于包含大对象（如文件、图片）的表。
+
+## 完整例子
+```SQL
+-- 为Employees表的LastName列创建一个非聚集索引，加速基于姓氏的查询
+CREATE NONCLUSTERED INDEX idx_employees_lastname
+ON Employees (LastName);
+
+-- 为Users表的UserID列创建唯一聚集索引，确保每个用户ID唯一
+CREATE UNIQUE CLUSTERED INDEX idx_users_userid
+ON Users (UserID);
+
+-- 为Orders表的OrderDate列创建非聚集索引，并将CustomerID和TotalAmount作为包含列
+CREATE NONCLUSTERED INDEX idx_orders_orderdate
+ON Orders (OrderDate)
+INCLUDE (CustomerID, TotalAmount);
+
+-- 只为Status为'Active'的订单创建索引
+CREATE NONCLUSTERED INDEX idx_orders_active
+ON Orders (OrderDate)
+WHERE Status = 'Active';
+
+-- 为Products表的CategoryID和Price列创建唯一非聚集索引，包含ProductName
+-- 设置填充因子、在线创建，并指定索引存储在UserIndexes文件组
+CREATE UNIQUE NONCLUSTERED INDEX idx_products_category_price
+ON Products (CategoryID ASC, Price DESC)
+INCLUDE (ProductName)
+WITH (
+    FILLFACTOR = 80,
+    ONLINE = ON,
+    DATA_COMPRESSION = PAGE
+)
+ON [UserIndexes];
 ```
