@@ -110,6 +110,33 @@
   - [语法](#语法-12)
   - [语句参数详解与补充](#语句参数详解与补充)
   - [完整例子](#完整例子-8)
+- [修改索引](#修改索引)
+  - [语法](#语法-13)
+  - [完整例子](#完整例子-9)
+- [优化索引](#优化索引)
+  - [索引性能分析](#索引性能分析)
+    - [1. SHOWPLAN 命令](#1-showplan-命令)
+    - [2. STATISTICS IO 命令](#2-statistics-io-命令)
+- [创建视图](#创建视图)
+  - [语法](#语法-14)
+  - [例子](#例子-19)
+- [查询视图](#查询视图)
+  - [例子](#例子-20)
+- [更新视图](#更新视图)
+  - [例子](#例子-21)
+- [修改视图](#修改视图)
+  - [语法](#语法-15)
+  - [例子](#例子-22)
+- [删除视图](#删除视图)
+  - [语法](#语法-16)
+  - [例子](#例子-23)
+- [用户定义函数](#用户定义函数)
+  - [标量值函数](#标量值函数)
+    - [语法](#语法-17)
+    - [例子](#例子-24)
+  - [内嵌表值函数](#内嵌表值函数)
+    - [语法](#语法-18)
+    - [例子](#例子-25)
 
 # 数据类型
 ## 1. 精确数字  
@@ -1286,4 +1313,324 @@ WITH (
     DATA_COMPRESSION = PAGE
 )
 ON [UserIndexes];
+```
+
+# 修改索引
+
+## 语法
+```sql
+ALTER INDEX { index_name | ALL }
+    ON <object> -- 指的是索引所属的对象，通常是表名
+    { REBUILD | DISABLE | REORGANIZE }
+```
+- REBUILD 是用来彻底重建索引，适用于碎片较严重的情况。
+- DISABLE 用来禁用索引，适合临时不需要索引时使用。
+- REORGANIZE 是对索引进行轻量的碎片整理，适用于碎片较少的情况。
+## 完整例子
+```sql
+-- 重新构建名为 `idx_customer_name` 的索引
+ALTER INDEX idx_customer_name 
+ON customers 
+REBUILD;
+
+-- 重新组织名为 `idx_product_name` 的索引
+ALTER INDEX idx_product_name 
+ON products 
+REORGANIZE;
+```
+
+# 优化索引
+## 索引性能分析
+
+### 1. SHOWPLAN 命令
+SHOWPLAN命令用来显示SQL Server查询执行计划的详细信息。查询执行计划是SQL Server执行查询时选择如何访问表和索引的步骤。
+
+**SHOWPLAN的类型：**
+- SHOWPLAN_XML: 显示执行计划的XML格式。这种格式包含了非常详细的执行计划信息，通常适用于需要分析和处理执行计划的场景。
+- SHOWPLAN_TEXT: 显示以文本格式的执行计划信息。相对简单易读，适合快速查看和理解执行计划。
+- SHOWPLAN_ALL: 提供比SHOWPLAN_TEXT更详细的执行计划信息，包含了执行计划中各个操作的更多内部细节。
+```sql
+-- 在例子中，执行查询时SQL Server不会真正执行查询，而是返回查询的执行计划，帮助查看查询如何执行。
+USE COLLEGE
+GO
+SET SHOWPLAN_XML ON -- SHOWPLAN_XML 可以被替换为另外两个showplan选项
+GO
+SELECT Name, Sex, Birthday
+FROM Student
+WHERE Name = 'John'
+GO
+SET SHOWPLAN_XML OFF
+GO
+```
+### 2. STATISTICS IO 命令
+STATISTICS IO命令用于显示SQL Server执行查询时，涉及的磁盘I/O操作的详细信息。
+```sql
+USE COLLEGE
+GO
+SET STATISTICS IO ON
+GO
+SELECT CourseName, Credit
+FROM Course
+WHERE Credit > 3
+GO
+SET STATISTICS IO OFF
+GO
+```
+执行查询后，SQL Server会返回查询执行期间的磁盘I/O统计信息。
+
+# 创建视图
+视图是基于查询结果的虚拟表，用于简化操作和增强数据安全。
+## 语法
+```sql
+CREATE VIEW [ schema_name . ] view_name [ (column [ ,...n ] ) ]
+[ WITH <view_attribute> [ ,...n ] ]
+AS select_statement [ ; ]
+[ WITH CHECK OPTION ]
+```
+
+## 例子
+```sql
+USE COLLEGE
+GO
+CREATE VIEW VIEW_Score_COMPUTER(学号,姓名,学院名,课程名,分数)
+AS
+SELECT Student.StudentID, Student.Name, School.SchoolName, Course.CourseName, Mark.Score
+FROM Student, School, Course, Mark
+WHERE Student.StudentID = Mark.StudentID
+  AND Course.CourseID = Mark.CourseID
+  AND Student.SchoolID = School.SchoolID
+  AND SchoolName = '计算机学院'
+GO
+
+
+USE COLLEGE
+GO
+CREATE VIEW VIEW_Score_AVG_SUM(姓名,平均分,总分)
+AS
+SELECT Student.Name,AVG(Score),SUM(Score)
+FROM Student,Course,Mark
+WHERE Student.StudentID=Mark.StudentID
+AND Course.CourseID=Mark.CourseID
+GROUP BY Student.Name
+GO
+```
+
+# 查询视图
+
+使用与查询表相同的语法进行视图查询。
+
+## 例子
+```sql
+USE COLLEGE
+GO
+SELECT *
+FROM VIEW_Score_COMPUTER -- 这是一个视图，而不是表
+WHERE 分数>=90
+GO
+```
+
+# 更新视图
+
+要使视图成为可更新视图，必须满足以下几个条件
+
+1. **单个表的列：**
+
+任何修改（包括UPDATE、INSERT和DELETE语句）只能涉及一个基础表的列。这意味着通过视图进行的数据修改，不能涉及多个表的联合操作，且修改的数据必须直接对应基础表的某些列。  
+
+2. **不能通过计算或聚合派生的列：**
+
+视图中的列必须直接引用表中的列数据。它们不能通过计算派生出来，例如使用聚合函数（如AVG、COUNT、SUM等）进行计算，或者通过表达式（例如列之间的运算）进行修改。也不能包含使用集合运算符（如UNION、UNION ALL等）产生的列。因为这些列的计算结果在视图层无法反向推送到基础表。
+
+3. **不能受GROUP BY、TOP、HAVING或DISTINCT子句影响：**
+
+如果视图中包含GROUP BY、TOP、HAVING或DISTINCT等子句，视图中的列就不能用于更新。这是因为这些子句可能会对数据进行聚合、限制或去重操作，导致视图的数据不是基础表数据的直接映射，无法正确地反向更新到基础表。
+
+## 例子
+
+```sql
+USE COLLEGE
+GO
+UPDATE VIEW_Score_COMPUTER
+SET 分数 = 分数 + 2
+WHERE 姓名 = '刘雨航' AND 课程名 = '大学物理'
+GO
+
+-- 如果平均分是通过某个聚合计算（如AVG函数）得出的，那么这个视图就不符合可更新视图的条件。
+USE COLLEGE
+GO
+UPDATE VIEW_Score_AVG_SUM
+SET 平均分 = 平均分 + 2
+WHERE 姓名 = '刘雨航'
+GO
+
+-- 该视图显示每个学生的平均分，但由于它使用了AVG()聚合函数，无法通过该视图进行更新。
+CREATE VIEW VIEW_Score_AVG AS
+SELECT 姓名, AVG(分数) AS 平均分
+FROM Scores
+GROUP BY 姓名;
+```
+
+# 修改视图
+
+## 语法
+```sql
+ALTER VIEW [ schema_name . ]
+view_name -- 必填：要创建或修改的视图名称
+[ ( column [ ,...n ] ) ] -- 定义视图返回结果的列名列表，需与 SELECT 查询的列数量和顺序一致
+[ WITH <view_attribute> -- 指定视图的附加属性
+[ ,...n ] ] -- 多个属性时，用逗号分隔
+AS 
+select_statement -- 视图的核心查询语句，定义视图从些表中选取哪些数据
+[ ; ]-- 语句结束分号，T-SQL 中不是必须的，但建议加以提高兼容性
+
+[ WITH CHECK OPTION ]-- 启用后，插入或更新数据时必须满足 SELECT 中的 WHERE 条件，否则操作失败
+```
+
+## 例子
+
+```sql
+USE COLLEGE
+GO
+-- 修改视图，以新的查询替代
+ALTER VIEW VIEW_Score_COMPUTER(学号, 姓名, 学院名, 课程名, 分数)
+AS
+SELECT 
+    s.StudentID,
+    s.Name,
+    sch.SchoolName,
+    c.CourseName,
+    m.Score
+FROM 
+    Student s
+    INNER JOIN Mark m ON s.StudentID = m.StudentID
+    INNER JOIN Course c ON m.CourseID = c.CourseID
+    INNER JOIN School sch ON s.SchoolID = sch.SchoolID
+WHERE 
+    sch.SchoolName = '物理学院'
+GO
+```
+
+# 删除视图
+
+## 语法
+```sql
+DROP VIEW view_name
+```
+
+## 例子
+```sql
+--删除VIEW_Score_AVG_SUM视图。
+DROP VIEW VIEW_Score_AVG_SUM
+```
+
+# 用户定义函数
+
+## 标量值函数
+### 语法
+```sql
+-- 创建标量值函数
+CREATE FUNCTION [ schema_name. ] function_name 
+( 
+    [ { @parameter_name [ AS ][ type_schema_name. ] parameter_data_type 
+        [ = default ] [ READONLY ] } 
+    [ ,...n ] 
+)
+RETURNS return_data_type
+    [ WITH <function_option> [ ,...n ] ]
+    [ AS ]
+    BEGIN 
+        -- 函数主体
+        function_body 
+        -- 返回值
+        RETURN scalar_expression
+    END
+```
+
+### 例子
+```sql
+--创建标量值函数FUN_SUM，函数返回两个数的和。
+USE COLLEGE
+GO
+CREATE FUNCTION FUN_SUM
+(@i INT,@j INT)
+RETURNS INT
+AS
+BEGIN
+  DECLARE @s INT
+  SET @s=@i+@j
+  RETURN @s
+END
+GO
+
+--调用FUN_SUM函数，求两个数的和。
+USE COLLEGE
+GO
+DECLARE @m INT
+DECLARE @n INT
+SET @m=10
+SET @n=20
+SELECT dbo.FUN_SUM(@m,@n)
+GO
+
+
+--创建标量值函数FUN_AVGScore，代入某课程号，函数返回某门课程的平均分。
+USE COLLEGE
+GO
+CREATE FUNCTION FUN_AVGScore(@CID INT)
+RETURNS FLOAT
+AS
+BEGIN
+  DECLARE @avgscore FLOAT
+  SELECT @avgscore=AVG(Score)
+  FROM Mark
+  WHERE CourseID=@CID
+  GROUP BY CourseID
+  RETURN @avgscore
+END
+GO
+--调用该函数。
+USE COLLEGE
+GO
+SELECT dbo.FUN_AVGScore(021)
+GO
+```
+
+## 内嵌表值函数
+内嵌表值函数是一种用户自定义函数（User-Defined Function，UDF），其返回结果是一个表（TABLE），并且该表是由一个单独的 SELECT 语句定义的。
+### 语法
+```sql
+CREATE FUNCTION [ schema_name. ] function_name 
+(
+  [ @parameter_name [ AS ] [ type_schema_name. ] parameter_data_type 
+    [ = default ] [ READONLY ] 
+  [, ...n ] 
+  ]
+)
+RETURNS TABLE
+  [ WITH <function_option> [ ,...n ] ]
+AS
+RETURN [ ( ] select_stmt [ ) ]
+
+```
+### 例子
+```sql
+USE PUBLISH
+GO
+CREATE FUNCTION FUN_Book(@Bid INT)
+RETURNS TABLE
+AS
+RETURN
+(
+  SELECT BookID,BookName
+  FROM Book
+  WHERE TypeID=@Bid
+)
+GO
+--创建完成后，调用该函数。
+USE PUBLISH
+GO
+SELECT * 
+FROM dbo.FUN_Book (1)
+GO
+--结果显示类型编号为“1”号的图书名称。
 ```
