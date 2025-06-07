@@ -180,6 +180,35 @@
   - [DENY 语句](#deny-语句)
     - [语法](#语法-26)
     - [例子](#例子-32)
+- [事物的概念](#事物的概念)
+  - [ACID原则](#acid原则)
+  - [事务分类](#事务分类)
+    - [1. **系统事务**：](#1-系统事务)
+    - [2. **用户定义的事务**：](#2-用户定义的事务)
+- [用户定义事物](#用户定义事物)
+  - [`BEGIN TRANSACTION` 启动事务](#begin-transaction-启动事务)
+    - [语法](#语法-27)
+    - [分析：](#分析)
+    - [示例：](#示例)
+  - [`COMMIT TRANSACTION` 提交事务](#commit-transaction-提交事务)
+    - [语法](#语法-28)
+    - [分析](#分析-1)
+    - [例子](#例子-33)
+  - [`ROLLBACK TRANSACTION` 回滚事务](#rollback-transaction-回滚事务)
+    - [语法](#语法-29)
+    - [分析](#分析-2)
+    - [例子](#例子-34)
+  - [`SAVE TRANSACTION` 设置保存点](#save-transaction-设置保存点)
+    - [语法](#语法-30)
+    - [分析](#分析-3)
+    - [例子](#例子-35)
+  - [完整例子](#完整例子-10)
+  - [事务控制流程图](#事务控制流程图)
+- [事物隔离等级](#事物隔离等级)
+    - [事务隔离级别的分类](#事务隔离级别的分类)
+    - [例子](#例子-36)
+    - [设置隔离级别为 `READ UNCOMMITTED`](#设置隔离级别为-read-uncommitted)
+    - [补充内容](#补充内容)
 
 # 数据类型
 ## 1. 精确数字  
@@ -2294,7 +2323,8 @@ FROM PUBLIC
 ```
 
 ## DENY 语句
-用户可使用DENY语句,防止主体通过其组或角色成员身份继承权限
+用户可使用DENY语句,防止主体通过其组或角色成员身份继承权限。
+即使权限是通过角色或其他用户继承的，DENY 也会覆盖所有权限。
 ### 语法
 ```sql
 DENY { ALL [ PRIVILEGES ] }
@@ -2308,3 +2338,280 @@ DENY { ALL [ PRIVILEGES ] }
 --拒绝账号cheng对Author表的SELECT权限。
 DENY SELECT ON Author TO cheng
 ```
+
+# 事物的概念
+
+## ACID原则
+ACID原则是数据库管理系统（DBMS）在事务处理中必须遵循的四个基本特性，它保证了数据库操作的可靠性和一致性。
+
+1. **原子性（Atomicity）**：
+   - **定义**：事务是数据库操作的基本单位。事务中的所有操作要么全部执行，要么全部不执行。换句话说，事务要么成功完成（提交），要么完全回滚（失败）。如果事务执行过程中出现了错误，已经执行的操作需要恢复到事务开始前的状态。
+   - **举例**：假设你正在进行银行转账操作，假如你从A账户转账到B账户，若在转账过程中网络中断或者出现其他故障，原子性要求A账户的扣款和B账户的存款操作要么都成功，要么都不做。
+
+2. **一致性（Consistency）**：
+   - **定义**：数据库在事务执行前后必须处于一致的状态。也就是说，事务的执行不能违反数据库的完整性约束条件。无论事务执行是否成功，数据库的状态必须从一个一致的状态转换到另一个一致的状态。
+   - **举例**：在进行银行转账时，账户的余额不应该为负数，且交易金额必须在账户余额范围内。如果发生了这种不一致的情况，事务应当回滚并恢复数据库的原始状态。
+
+3. **隔离性（Isolation）**：
+   - **定义**：一个事务的执行不应受到其他事务的干扰。多个事务并发执行时，一个事务的中间状态对其他事务是不可见的，直到该事务提交（成功）或者回滚（失败）。这样可以避免并发事务引发的数据不一致问题。
+   - **举例**：假设有两个银行转账事务同时进行，隔离性保证在事务执行过程中，A账户的余额更新在事务提交之前，其他事务不能看到这个中间状态，也无法对A账户进行修改。
+
+4. **持久性（Durability）**：
+   - **定义**：事务一旦提交，其结果就会被永久保存在数据库中，即使系统发生崩溃或断电，数据也不应丢失。
+   - **举例**：在银行转账操作成功提交后，无论系统发生什么故障，已转账的金额依然存在于数据库中。
+
+## 事务分类
+
+SQL Server 2012根据事务的设置和用途将事务分为不同类型。这里具体介绍了两类事务：**系统事务** 和 **用户定义的事务**。
+
+### 1. **系统事务**：
+   - **定义**：系统事务是由数据库系统自动管理和控制的事务。执行某些数据库操作时，SQL Server会自动为这些操作管理事务。你无需显式地开始、提交或回滚事务，SQL Server会在执行相关语句时自动处理事务。
+   - **相关语句**：以下操作自动成为一个事务，并且其执行是自动提交的（即执行成功后自动提交事务）。
+     - `ALTER TABLE`：修改表结构。
+     - `CREATE`：创建数据库对象（如表、视图等）。
+     - `DELETE`：删除数据。
+     - `DROP`：删除数据库对象。
+     - `FETCH`：在游标中获取数据。
+     - `GRANT`：授权用户权限。
+     - `INSERT`：插入数据。
+     - `OPEN`：打开游标。
+     - `REVOKE`：撤销授权。
+     - `SELECT`：查询数据。
+     - `UPDATE`：更新数据。
+     - `TRUNCATE TABLE`：删除所有表数据，但不记录每一行的删除操作。
+
+   这些系统提供的事务一般都会进行自动的提交或回滚操作，因此你不需要显式地管理事务。
+
+### 2. **用户定义的事务**：
+   - **定义**：用户定义的事务是由开发人员手动开始、提交或回滚的事务。通常用户会显式地使用 `BEGIN TRANSACTION`、`COMMIT TRANSACTION` 和 `ROLLBACK TRANSACTION` 来管理事务的开始、提交和回滚。
+   - **特点**：
+     - `BEGIN TRANSACTION`：表示开始一个事务。
+     - `COMMIT TRANSACTION`：表示提交事务，使所有变更永久保存。
+     - `ROLLBACK TRANSACTION`：表示回滚事务，撤销事务中对数据的所有更改。
+  
+
+
+# 用户定义事物
+## `BEGIN TRANSACTION` 启动事务
+
+### 语法
+```sql
+BEGIN TRANSACTION TranName;
+```
+
+### 分析：
+- 启动一个事务，此后对数据库所做的更改都属于该事务。
+- 可以命名事务以提高可读性。
+- **嵌套事务**：SQL Server 允许嵌套事务，但只有**最外层事务的提交**才会实际生效。
+
+### 示例：
+```sql
+BEGIN TRANSACTION Tran_UpdateSalary;
+UPDATE Employees SET Salary = Salary * 1.1 WHERE Department = 'Sales';
+```
+
+## `COMMIT TRANSACTION` 提交事务
+
+### 语法
+```sql
+COMMIT TRANSACTION TranName;
+```
+
+### 分析
+- 将当前事务所做的所有更改**永久保存**到数据库。
+- 嵌套事务中的`COMMIT`只会减少`@@TRANCOUNT`，最终外层`COMMIT`才生效。
+- 如果事务成功执行，应显式提交。
+
+### 例子
+```sql
+COMMIT TRANSACTION Tran_UpdateSalary;
+```
+
+
+## `ROLLBACK TRANSACTION` 回滚事务
+
+### 语法
+```sql
+ROLLBACK TRANSACTION [TranName | SavepointName];
+```
+
+### 分析
+- 取消自`BEGIN TRANSACTION`以来所做的所有更改。
+- 如果指定保存点（savepoint），则回滚到该点，**保留之前的更改**。
+
+### 例子
+```sql
+-- 回滚整个事务
+ROLLBACK TRANSACTION Tran_UpdateSalary;
+
+-- 部分回滚（结合保存点）
+SAVE TRANSACTION Save_1;
+DELETE FROM Employees WHERE Department = 'IT';
+-- 发生错误
+ROLLBACK TRANSACTION Save_1;
+```
+
+## `SAVE TRANSACTION` 设置保存点
+
+### 语法
+```sql
+SAVE TRANSACTION SavepointName;
+```
+
+### 分析
+- 在事务内部设定一个**可回滚的位置**。
+- 用于**局部错误处理**，避免全部回滚。
+- 通常结合`TRY...CATCH`结构使用。
+
+### 例子
+```sql
+BEGIN TRANSACTION;
+SAVE TRANSACTION Save_BeforeDelete;
+
+BEGIN TRY
+    DELETE FROM Employees WHERE Department = 'IT';
+    COMMIT;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION Save_BeforeDelete;
+    PRINT 'Error occurred, changes rolled back to savepoint.';
+    COMMIT;
+END CATCH
+```
+
+## 完整例子
+```sql
+--定义一个事务，将所有图书类型TypeID为3的图书单价涨1.5元，并提交该事务。
+USE PUBLISH
+GO
+DECLARE @b_price NCHAR(10)
+SET @b_price='add_price'
+BEGIN TRANSACTION @b_price
+UPDATE Book
+SET Price=Price+1.5
+WHERE typeID=3
+COMMIT TRANSACTION @b_price
+GO
+
+--定义一个事务，向Book表中添加记录。如果添加成功，则将TypeID号为8的类型名改为“艺术”。否则不操作。
+USE PUBLISH
+GO
+BEGIN TRAN
+INSERT INTO Book
+VALUES('1436','SQL Server 2012','3081','32','1')
+IF @@error=0
+  BEGIN
+    PRINT '添加成功！'
+    UPDATE Type
+    SET TypeName='艺术'
+    WHERE TypeID='8'
+    COMMIT TRAN
+  END
+ELSE
+  BEGIN
+    PRINT '添加失败！'
+    ROLLBACK TRAN
+  END
+
+-- 将多个操作定义为一个事务 (批处理)
+USE COLLEGE
+GO
+BEGIN TRANSACTION
+UPDATE Mark
+SET Score=Score-2
+WHERE CourseID=5
+INSERT INTO Course
+VALUES('508','C#编程',4)
+SELECT Name,Sex
+FROM Student
+WHERE Name LIKE '张%'
+COMMIT TRANSACTION
+```
+
+## 事务控制流程图
+
+```
+BEGIN TRANSACTION
+      ↓
+  执行T-SQL操作
+      ↓
+-------------------------
+| 正常执行 | 出现异常 |
+| -------- | -------- |
+| COMMIT   | ROLLBACK |
+-------------------------
+```
+
+# 事物隔离等级
+
+`SET TRANSACTION ISOLATION LEVEL` 语句用于设置当前会话的事务隔离级别。事务隔离级别决定了事务之间的并发行为，尤其是如何控制一个事务在执行过程中对其他事务的影响。这主要关系到数据一致性和并发性能。
+
+### 事务隔离级别的分类
+SQL Server 支持以下几种事务隔离级别，每个隔离级别都会对事务的执行方式产生不同的影响：
+
+1. **READ UNCOMMITTED**
+   - **定义**：允许读取未提交的数据（即脏读）。在这个隔离级别下，一个事务可以看到其他事务中尚未提交的更改。可能会导致脏读、不可重复读和幻读。
+   - **适用场景**：对于对数据一致性要求不高的查询场景，或者一些对数据的读取要求较快，允许不一致数据的查询。
+ 
+2. **READ COMMITTED**（默认隔离级别）
+   - **定义**：只允许读取已经提交的数据。其他事务的更新如果尚未提交，当前事务不能看到。这避免了脏读，但仍然可能出现不可重复读和幻读。
+   - **适用场景**：大多数情况下使用此隔离级别，它是默认的事务隔离级别。
+
+3. **REPEATABLE READ**
+   - **定义**：在一个事务期间，所有的数据读取操作将保持一致，即读取的数据在整个事务内是不可改变的。虽然防止了脏读和不可重复读，但可能会导致幻读。
+   - **适用场景**：需要确保在整个事务中读取的数据一致，但不需要完全避免幻读的情况。
+
+4. **SERIALIZABLE**
+   - **定义**：最严格的事务隔离级别。在这个级别下，事务完全隔离，其他事务无法访问到正在被当前事务操作的数据。此级别防止了脏读、不可重复读和幻读。
+   - **适用场景**：对事务一致性要求非常高的场景，例如银行系统的转账操作。
+
+5. **SNAPSHOT**
+   - **定义**：使用数据库的快照技术保证事务一致性。这避免了脏读、不可重复读和幻读的问题，但可能会增加内存消耗。
+   - **适用场景**：需要确保数据一致性的同时，减少锁争用的场景。
+
+### 例子
+
+```sql
+USE COLLEGE
+GO
+BEGIN TRAN
+UPDATE Course
+SET CourseName='足球'
+WHERE CourseID=131
+```
+这里，`USE COLLEGE` 选择了数据库 `COLLEGE`，`BEGIN TRAN` 开启了一个事务，在这个事务中更新了 `Course` 表中 `CourseID = 131` 的记录的 `CourseName` 字段。此时事务并未提交，因此数据被锁定，其他事务无法看到这个修改。
+
+然后在第二个查询窗口中执行：
+```sql
+USE COLLEGE
+GO
+SELECT *
+FROM Course
+GO
+```
+因为 `Course` 表中的数据尚未提交，这个查询会等待，显示“正在执行查询”的状态。由于存在未提交的事务，系统会锁定相关的数据。
+
+### 设置隔离级别为 `READ UNCOMMITTED`
+为了演示脏读，你使用了以下命令：
+```sql
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+```
+这条语句设置当前会话的事务隔离级别为 `READ UNCOMMITTED`，此时可以允许脏读，即即使其他事务没有提交，当前事务仍然能够读取到这些未提交的数据。
+
+在这种隔离级别下，后续的查询会直接读取所有的数据，而不管它们是否已提交。这样即使第一个事务没有提交，第二个查询窗口的查询仍然可以看到更新后的数据（即便这些数据可能会被回滚）。这个行为使得“脏读”成为可能，即查询到的数据可能在后续回滚后不再有效。
+
+```sql
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+```
+
+### 补充内容
+
+1. **脏读**：指的是一个事务读取了另一个事务中尚未提交的数据。这可能导致读取到的结果是无效的，因为另一个事务可能会回滚，这时候已读取的数据会被撤销。
+
+2. **不可重复读**：指的是在一个事务中，重复读取同一数据时，数据的值发生了变化。这是因为另一个事务在当前事务读取数据后对数据进行了修改。
+
+3. **幻读**：指的是在一个事务中读取的结果集与另一个事务并发修改数据时发生了变化。即在同一个事务中执行相同的查询时，结果集会发生变化。
+
+4. **锁机制**：SQL Server 会根据事务隔离级别自动管理锁的粒度和锁的种类。在 `READ UNCOMMITTED` 级别下，不会对读取的数据加锁，因此其他事务可以自由修改这些数据。
+
+5. **如何避免脏读**：如果应用程序中需要避免脏读，可以考虑使用 `READ COMMITTED` 或更高的事务隔离级别。常用的做法是选择 `READ COMMITTED`，它可以防止脏读，但可能会导致不可重复读。
