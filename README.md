@@ -137,6 +137,35 @@
   - [内嵌表值函数](#内嵌表值函数)
     - [语法](#语法-18)
     - [例子](#例子-25)
+  - [多语句表值函数](#多语句表值函数)
+    - [语法](#语法-19)
+    - [例子](#例子-26)
+- [创建存储过程](#创建存储过程)
+  - [语法](#语法-20)
+    - [创建存储过程的基本步骤](#创建存储过程的基本步骤)
+    - [`CREATE PROCEDURE`语句的语法](#create-procedure语句的语法)
+      - [语法说明：](#语法说明)
+    - [存储过程的常见使用场景](#存储过程的常见使用场景)
+    - [创建存储过程的注意事项](#创建存储过程的注意事项)
+  - [例子](#例子-27)
+- [调用存储过程](#调用存储过程)
+- [创建触发器](#创建触发器)
+  - [语法](#语法-21)
+    - [关键部分解释：](#关键部分解释)
+  - [触发器类型](#触发器类型)
+  - [例子](#例子-28)
+- [禁止或删除触发器](#禁止或删除触发器)
+  - [语法](#语法-22)
+- [创建游标](#创建游标)
+  - [语法](#语法-23)
+    - [**解析：**](#解析)
+      - [游标的使用场景：](#游标的使用场景)
+  - [例子](#例子-29)
+- [使用游标](#使用游标)
+  - [打开游标](#打开游标)
+  - [读取游标](#读取游标)
+  - [关闭游标](#关闭游标)
+  - [删除游标](#删除游标)
 
 # 数据类型
 ## 1. 精确数字  
@@ -1633,4 +1662,454 @@ SELECT *
 FROM dbo.FUN_Book (1)
 GO
 --结果显示类型编号为“1”号的图书名称。
+```
+## 多语句表值函数
+### 语法
+```sql
+CREATE FUNCTION [ schema_name. ] function_name 
+( 
+    [ 
+      { @parameter_name [ AS ] [ type_schema_name. ] parameter_data_type 
+        [ = default ] [ READONLY ] } 
+      [ ,...n ] 
+    ]
+)
+RETURNS @return_variable TABLE (<table_type_definition>)
+    [ WITH <function_option> [ ,...n ] ]
+AS
+BEGIN 
+    function_body
+    RETURN
+END
+```
+### 例子
+```sql
+创建多语句表值函数
+USE COLLEGE
+GO
+CREATE FUNCTION FUN_Sch(@schname NCHAR(20))
+RETURNS @stuSch  TABLE
+(
+  stuid   INT PRIMARY KEY NOT NULL,
+  stuName NCHAR(10)       NOT NULL,
+  stuSex  NCHAR(2)        NOT NULL
+)
+AS
+BEGIN
+ INSERT @stuSch
+   SELECT StudentID,Name,Sex
+   FROM Student
+   WHERE SchoolID=
+   (
+     SELECT SchoolID
+     FROM School
+     WHERE SchoolName=@schname    
+   )  
+ RETURN
+END
+GO
+
+
+--调用该函数。
+USE COLLEGE
+GO
+SELECT *
+FROM dbo.FUN_Sch('计算机学院')
+GO
+--结果显示计算机学院学生的信息。
+
+```
+
+# 创建存储过程
+存储过程（Stored Procedure）是一组由SQL语句组成的程序，可以通过数据库管理系统（如SQL Server）进行管理和执行。存储过程可以用来封装一系列的数据库操作，提高数据库的性能、可维护性、安全性以及代码复用性。
+
+## 语法
+```sql
+CREATE { PROC | PROCEDURE } [schema_name.] procedure_name 
+    [ ; number ] 
+    [ { @parameter [ type_schema_name. ] data_type } 
+        [ VARYING ] [ = default ] [ OUT | OUTPUT ] [READONLY]
+    ] [ ,...n ] 
+[ WITH <procedure_option> [ ,...n ] ]
+[ FOR REPLICATION ] 
+AS { <sql_statement> [;][ ...n ] | <method_specifier> }
+
+```
+
+### 创建存储过程的基本步骤
+
+在创建存储过程时，通常需要确定以下三个主要组成部分：
+
+1. **输入参数和输出参数**：
+   - 存储过程可以有一个或多个输入参数（例如，查询的条件、需要处理的数据等），也可以有输出参数，用于返回结果。
+   - 输入参数用于接收外部传入的数据，输出参数用于将结果返回给调用者。
+
+2. **执行的SQL操作**：
+   - 存储过程内部包含针对数据库的操作，例如 `SELECT`、`INSERT`、`UPDATE`、`DELETE`等。
+   - 存储过程也可以调用其他存储过程，执行复杂的业务逻辑。
+
+3. **返回状态值**：
+   - 存储过程通常会返回一个状态值，以便调用者知道该过程是否成功执行。成功时，通常返回`0`或`1`；失败时，返回非零值。
+
+### `CREATE PROCEDURE`语句的语法
+
+创建存储过程的基本语法如下：
+
+```sql
+CREATE { PROC | PROCEDURE } [schema_name.] procedure_name 
+    [ ; number ] 
+    [ { @parameter [ type_schema_name. ] data_type } 
+        [ VARYING ] [ = default ] [ OUT | OUTPUT ] [READONLY]
+    ] [ ,...n ] 
+[ WITH <procedure_option> [ ,...n ] ]
+[ FOR REPLICATION ] 
+AS { <sql_statement> [;][ ...n ] | <method_specifier> }
+```
+
+#### 语法说明：
+
+1. **`CREATE PROCEDURE`**：用来定义存储过程，关键字可以是`PROC`或`PROCEDURE`。`schema_name`为存储过程所属的架构名，`procedure_name`为存储过程的名称。
+ 
+2. **参数声明**：
+   - 存储过程支持参数的声明，包括输入参数和输出参数。`@parameter`用于声明参数，`data_type`指定参数的数据类型。
+   - **`OUTPUT`**表示输出参数，表示调用存储过程时，可以通过这个参数将值返回给调用者。
+   - 参数可以指定默认值，例如 `@param INT = 100` 表示如果调用时没有传入该参数，默认使用100。
+
+3. **`WITH`选项**：可以设置存储过程的附加选项，例如是否为复制使用（`FOR REPLICATION`）。
+ 
+4. **SQL语句**：`AS`后跟存储过程的主体部分，可以包含一个或多个SQL语句，用来实现存储过程的核心功能。
+
+### 存储过程的常见使用场景
+
+1. **封装业务逻辑**：
+   存储过程可以将复杂的业务逻辑封装成单一的数据库对象，简化应用程序的数据库操作。
+
+2. **提高性能**：
+   存储过程通过在数据库服务器端执行，减少了客户端与数据库之间的网络流量，可以提升性能。
+
+3. **提高安全性**：
+   存储过程可以限制对敏感数据的访问，只通过存储过程对数据进行操作，避免直接对表进行访问。
+
+### 创建存储过程的注意事项
+
+1. **不能使用某些语句**：
+   存储过程内部不能使用某些创建或修改数据库对象的语句，如 `CREATE AGGREGATE`、`CREATE RULE`等。
+
+2. **参数声明和使用**：
+   - 存储过程的参数可以是输入、输出或只读（`READONLY`）。输出参数将值返回给调用者。
+   - 临时表只能在存储过程中使用，退出存储过程后会自动消失。
+
+3. **执行远程存储过程的注意事项**：
+   - 如果存储过程在远程 SQL Server 实例上执行更改，这些更改不能被回滚，因为远程存储过程不参与本地事务处理。
+
+4. **架构的影响**：
+   - 存储过程中的对象访问通常依赖于创建存储过程的用户的权限。如果表或视图没有明确的架构，默认使用存储过程所在架构的权限。
+
+5. **加密存储过程定义**：
+   - 使用 `WITH ENCRYPTION` 选项可以对存储过程定义进行加密，以防止用户查看其内容。
+
+6. **命名规则**：
+   - 不要以 `sp_` 为前缀创建存储过程，因为 `sp_` 前缀是SQL Server系统存储过程的约定，使用该前缀可能导致未来的冲突。
+
+## 例子
+
+```sql
+-- 存储过程 GetEmployeeDetails 接受一个 EmployeeID 作为输入参数，并通过输出参数 EmployeeName 返回该员工的名字。如果员工不存在，则会输出错误消息。
+CREATE PROCEDURE GetEmployeeDetails
+    @EmployeeID INT,
+    @EmployeeName NVARCHAR(100) OUTPUT
+AS
+BEGIN
+    SELECT @EmployeeName = EmployeeName
+    FROM Employees
+    WHERE EmployeeID = @EmployeeID;
+  
+    IF @EmployeeName IS NULL
+    BEGIN
+        PRINT 'Employee not found';
+    END
+    ELSE
+    BEGIN
+        PRINT 'Employee found: ' + @EmployeeName;
+    END
+END;
+
+
+-- 在COLLEGE数据库中创建存储过程，将Mark表中所有226号课程的分数加5分。
+USE COLLEGE
+GO
+CREATE PROC PROC_AddScore
+AS
+UPDATE Mark
+SET Score=Score+5
+WHERE CourseID='226'
+GO
+
+
+--创建带有通配符参数的存储过程。
+--下面的存储过程只从Student表中返回指定的一些学生（提供名字和姓氏）的信息。该存储过程对传递的参数进行模式匹配，如果没有提供参数，则返回所有学生的信息。
+USE COLLEGE
+GO
+CREATE PROC PROC_Name
+@stuname NCHAR(20)='%'
+AS
+SELECT *
+FROM Student
+WHERE Name LIKE @stuname
+GO
+
+--创建使用OUTPUT参数的存储过程。
+USE COLLEGE
+GO
+CREATE PROCEDURE PROC_GetStudentAveAge
+@schid NCHAR(2),
+@aveage INT OUTPUT
+AS 
+  Set @aveage=
+  (
+   SELECT AVG(YEAR(GETDATE())-YEAR(Birthday))
+   FROM Student
+   WHERE SchoolID=@schid
+  )
+GO
+```
+
+# 调用存储过程
+```sql
+USE COLLEGE
+GO
+EXECUTE dbo.PROC_AddScore
+GO
+
+-- 调用时需要输入参数值,参数值与存储过程名中间用空格分开。
+--EXECUTE可以缩写为EXEC
+USE COLLEGE
+GO
+EXEC dbo.PROC_AddScore1 2
+GO
+-- 
+USE COLLEGE
+GO
+EXEC dbo.PROC_Name '王%'
+GO
+-- 
+USE COLLEGE
+GO
+DECLARE @stubiravg INT
+EXEC dbo.PROC_GetStudentAveAge '1',@stubiravg OUTPUT
+PRINT '2号学院的学生平均年龄是'+STR(@stubiravg)+'岁'
+GO
+```
+
+# 创建触发器
+## 语法
+```sql
+CREATE TRIGGER [ schema_name . ]trigger_name 
+ON { table | view } 
+[ WITH <dml_trigger_option> [ ,...n ] ]
+{ FOR | AFTER | INSTEAD OF } 
+{ [ INSERT ] [ , ] [ UPDATE ] [ , ] [ DELETE ] } 
+[ WITH APPEND ] 
+[ NOT FOR REPLICATION ] 
+AS 
+{ sql_statement  [ ; ] [ ...n ] | EXTERNAL NAME <method specifier [ ; ] > }
+```
+### 关键部分解释：
+
+- `schema_name.trigger_name`：触发器的完整名称，可以指定架构（如 `dbo.MyTrigger`）。
+- `ON { table | view }`：指定触发器所关联的对象（通常是**表**，INSTEAD OF 可以用于视图）。
+- `WITH <dml_trigger_option>`：用于指定触发器的附加属性，如 `ENCRYPTION`（加密触发器体）或 `EXECUTE AS`。
+- `{ FOR | AFTER | INSTEAD OF }`：指定触发时机：
+  - `FOR` 和 `AFTER` 实际等价，都是表示在数据操作执行 **之后** 执行触发器。
+  - `INSTEAD OF` 表示替代原有数据操作执行触发器逻辑（常用于视图）。
+- `{ INSERT | UPDATE | DELETE }`：触发器响应的操作类型，可以是多个。
+- `WITH APPEND`：当一个同类型触发器已存在时，使用该选项可以追加而不是替换原有触发器（仅 SQL Server 2005+，且仅适用于 AFTER 触发器）。
+- `NOT FOR REPLICATION`：复制操作不激活该触发器，避免复制时误触发业务逻辑。
+- `AS { sql_statement }`：触发器体，即在触发时执行的 SQL 语句块。可为一条或多条语句。
+
+## 触发器类型
+
+T-SQL 中的触发器分为三类：
+
+- **DML触发器（Data Manipulation Language）**：用于响应 INSERT、UPDATE 或 DELETE 操作。
+  - AFTER 触发器（默认）在操作完成后执行。
+  - INSTEAD OF 触发器在操作发生前拦截，并可替代执行。
+- **DDL触发器（Data Definition Language）**：用于响应如 CREATE、ALTER、DROP 等数据库结构更改语句。
+  - 用法不同于 `CREATE TRIGGER ON table`，而是 `ON DATABASE` 或 `ON ALL SERVER`。
+- **登录触发器（Logon Trigger）**：用于响应登录事件（`CREATE TRIGGER ... ON ALL SERVER FOR LOGON`）。
+
+## 例子
+```sql
+CREATE TRIGGER trg_AuditUpdate
+ON Employees
+AFTER UPDATE
+AS
+BEGIN
+    INSERT INTO EmployeeAudit (EmpID, OldSalary, NewSalary, ChangeDate)
+    SELECT d.EmpID, d.Salary, i.Salary, GETDATE()
+    FROM deleted d
+    INNER JOIN inserted i ON d.EmpID = i.EmpID
+    WHERE d.Salary <> i.Salary
+END
+
+--创建DDL触发器。
+--下列代码说明了如何使用DDL触发器来防止数据库中的任一表被修改或删除。
+USE COLLEGE
+GO
+CREATE TRIGGER safety
+ON database
+FOR DROP_TABLE, ALTER_TABLE 
+AS 
+   PRINT '你必须使safety触发器无效才能执行对表的操作!' 
+   ROLLBACK
+GO
+
+
+--使用包含提醒消息的DML触发器。
+USE COLLEGE
+GO
+CREATE TRIGGER reminder
+ON Student
+AFTER INSERT, UPDATE
+AS RAISERROR ('你在插入或修改学生表的数据', 16, 10)
+GO
+```
+
+# 禁止或删除触发器
+## 语法
+- 禁用触发器：
+```sql
+DISABLE TRIGGER trigger_name ON table_name;
+```
+- 启用触发器：
+```sql
+ENABLE TRIGGER trigger_name ON table_name;
+```
+- 删除触发器：
+```sql
+DROP TRIGGER trigger_name;
+```
+
+# 创建游标
+## 语法
+```sql
+DECLARE cursor_name CURSOR
+[ LOCAL | GLOBAL ]
+[ FORWORD_only | SCROLL ]
+[ STATIC | KEYSET | DYNAMIC | FAST_FORWARD ]
+[ READ_ONLY | SCROLL_LOCKS | OPTIMISTIC ]
+[ TYPE_WARING ]
+FOR select_list
+[ FOR UPDATE [ OF column_name [,…n ] ] ]
+```
+
+### **解析：**
+
+1. **LOCAL / GLOBAL**：
+   - **LOCAL**：游标的作用域限制在当前的存储过程、触发器或批处理中。当存储过程结束时，游标会自动关闭并释放资源。
+   - **GLOBAL**：游标的作用域是全局的，意味着它在整个会话期间都有效，直到用户断开数据库连接时才会释放。
+
+2. **FORWARD_ONLY / SCROLL**：
+   - **FORWARD_ONLY**：游标只能按顺序（从第一行到最后一行）处理结果集。只能使用 `FETCH NEXT` 操作。
+   - **SCROLL**：支持任意方向的滚动，允许使用更多的定位操作，如 `FIRST`、`LAST`、`PRIOR`、`NEXT`、`RELATIVE`、`ABSOLUTE` 等。
+
+3. **STATIC / KEYSET / DYNAMIC / FAST_FORWARD**：
+   - **STATIC**：游标读取的数据是静态的，数据的变化不会影响已经提取的数据。此类游标将会将查询结果存储在临时表中，数据的变化无法反映。
+   - **KEYSET**：游标使用键值（唯一标识）来识别数据，每次提取数据时，基于初始结果集的数据顺序进行定位。该类型的游标对表的变化有一定的反应。
+   - **DYNAMIC**：游标能够实时反映表中的数据变化，包括数据的插入、删除或更新。它是最灵活的，但也最占用资源。
+   - **FAST_FORWARD**：这是一个针对 `FORWARD_ONLY` 且 `READ_ONLY` 类型游标的优化选项，旨在提高性能。如果使用了 `SCROLL` 或 `FOR_UPDATE`，则无法使用此选项。
+
+4. **READ_ONLY / SCROLL_LOCKS / OPTIMISTIC**：
+   - **READ_ONLY**：游标只能读取数据，不能修改。
+   - **SCROLL_LOCKS**：在游标提取数据时，会对数据加锁，确保在游标作用范围内不会发生冲突。这对于并发修改非常重要，但也会导致性能问题。
+   - **OPTIMISTIC**：如果游标数据已经发生变化，更新或删除时可能会失败。此选项在并发环境下有用，但不适合高并发修改的场景。
+
+5. **TYPE_WARNING**：如果游标类型与用户定义的类型不一致，将会发送警告信息给客户端。
+
+#### 游标的使用场景：
+游标一般用于以下情况：
+- **逐行处理查询结果**：比如在处理查询返回的数据时，需要对每一行数据进行特殊处理。
+- **复杂数据操作**：如当涉及到多表连接、复杂聚合等操作时，游标可以简化程序逻辑。
+- **事务控制**：游标在处理数据时，通常会配合事务使用，以确保数据的原子性、一致性、隔离性和持久性（ACID特性）。
+
+## 例子
+```sql
+-- 声明一个名为Stu_Cur的游标，是只读的，游标只能从头到尾顺序读取数据。
+USE COLLEGE 
+GO
+DECLARE Stu_Cur CURSOR
+FOR
+SELECT StudentID,Name,Sex,SchoolName
+FROM Student,School
+WHERE Student.SchoolID=School.SchoolID
+AND SchoolName='计算机学院'
+FOR READ ONLY
+GO
+
+--声明一个名为Pro_Cur的游标。该游标与单个表的查询结果集关联，是动态的，可前后滚动，其中Name列数据可以修改。
+USE PUBLISH 
+GO
+DECLARE Pro_Cur CURSOR
+DYNAMIC
+FOR
+SELECT Name,Sex
+FROM Author
+WHERE Provinces='北京'
+FOR UPDATE OF Name
+GO
+```
+
+# 使用游标
+## 打开游标
+```sql
+OPEN [GLOBAL] cursor_name
+-- 
+USE COLLEGE
+GO
+OPEN Stu_Cur
+```
+
+## 读取游标
+```sql
+FETCH
+[ [ NEXT | PRIOR | FIRST | LAST
+| ABSOLUTE { n | @nvar }
+| RELATIVE { n | @nvar }
+]
+FROM
+]
+{ { [ GLOBAL ] cursor_name } | @cursor_variable_name }
+[ INTO @variable_name [ ,...n ] ]
+
+USE COLLEGE
+GO
+FETCH NEXT FROM Stu_Cur
+GO
+
+USE PUBLISH
+GO
+FETCH NEXT FROM Pro_Cur
+FETCH FIRST FROM Pro_Cur
+FETCH LAST FROM Pro_Cur
+FETCH PRIOR FROM Pro_Cur
+FETCH RELATIVE 3 FROM Pro_Cur
+GO
+```
+
+## 关闭游标
+```sql
+CLOSE curso_name
+
+CLOSE Stu_Cur
+```
+
+## 删除游标
+```sql
+DEALLOCATE curso _name
+
+USE PUBLISH
+GO
+CLOSE Pro_Cur
+DEALLOCATE Pro_Cur
+GO
 ```
