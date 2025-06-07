@@ -166,6 +166,20 @@
   - [读取游标](#读取游标)
   - [关闭游标](#关闭游标)
   - [删除游标](#删除游标)
+- [用户权限管理](#用户权限管理)
+  - [创建用户](#创建用户)
+  - [分配用户权限](#分配用户权限)
+    - [语法](#语法-24)
+      - [主要组成部分：](#主要组成部分)
+    - [例子](#例子-30)
+  - [收回用户权限](#收回用户权限)
+    - [语法](#语法-25)
+    - [一、REVOKE 语句语法解析](#一revoke-语句语法解析)
+      - [参数说明：](#参数说明)
+    - [例子](#例子-31)
+  - [DENY 语句](#deny-语句)
+    - [语法](#语法-26)
+    - [例子](#例子-32)
 
 # 数据类型
 ## 1. 精确数字  
@@ -2112,4 +2126,185 @@ GO
 CLOSE Pro_Cur
 DEALLOCATE Pro_Cur
 GO
+```
+
+# 用户权限管理
+## 创建用户
+```sql
+-- 新建一个名字为“cheng”的账号，密码是“123456”
+CREATE LOGIN cheng WITH PASSWORD = '123456'
+
+--把账号“cheng”授予数据库PUBLISH，成为该数据库用户
+-- 运行后，重新以“cheng”账号连接登录服务器，可以查看PUBLISH数据库，但看不到该数据库中的表，也不能进行其他用户
+USE PUBLISH
+GO
+CREATE USER cheng FOR LOGIN cheng
+GO
+```
+
+## 分配用户权限
+`GRANT`语句用于将某些权限授予一个或多个主体（如用户、角色等）以允许他们在特定的安全对象（如数据库、表、视图、存储过程等）上执行特定的操作
+### 语法
+```sql
+GRANT { ALL [ PRIVILEGES ] }
+    | permission [ ( column [ ,...n ] ) ] [ ,...n ]
+    [ ON [ class :: ] securable ] TO principal [ ,...n ] 
+    [ WITH GRANT OPTION ] [ AS principal ]
+```
+
+
+
+#### 主要组成部分：
+1. **ALL [ PRIVILEGES ]**:
+   - **ALL** 代表授予所有权限。不同类型的安全对象（如数据库、表、视图等）有不同的“ALL”权限组合。比如，对于表而言，“ALL”意味着授予 `DELETE`、`INSERT`、`REFERENCES`、`SELECT` 和 `UPDATE` 权限
+
+2. **permission [ ( column [ ,...n ] ) ] [ ,...n ]**:
+   - **permission** 是你授予主体的权限名称。例如，`SELECT`、`INSERT`、`UPDATE`、`DELETE` 等。
+   - 你可以指定具体的 **列**（`column`），而不仅仅是授予对整个表或视图的权限。这对于控制权限粒度非常有用。如果指定了列，则权限只在指定的列上有效。
+
+3. **ON [ class :: ] securable**:
+   - **class**：指示授予权限的对象类型（例如，`TABLE`、`VIEW`、`PROCEDURE`、`DATABASE` 等）。该部分可以使用范围限定符 `::` 来明确指定对象类型。
+   - **securable**：具体的安全对象，可以是表、视图、函数、数据库等。
+
+4. **TO principal [ ,...n ]**:
+   - **principal**：指授予权限的主体（用户或角色）的名称。主体可以是一个或多个，可以用逗号分隔。
+   - 例如，如果你要把权限授予用户 `user1` 和角色 `role1`，可以指定：`TO user1, role1`。
+
+5. **WITH GRANT OPTION**:
+   - **WITH GRANT OPTION** 允许被授权的主体在获取权限的同时，还能将该权限进一步授予其他主体。
+   - 如果没有这个选项，被授权的主体只能使用所授予的权限，而不能再将其转授给其他主体。
+
+6. **AS principal**:
+   - **AS principal** 允许你以某个指定的主体身份执行 `GRANT` 语句。这意味着，授予权限的操作是由某个不同的主体来执行的，而非当前的数据库用户。
+   - 这种方式常用于需要以系统管理员身份执行操作时，模拟其他主体来授予权限。
+
+### 例子
+
+1. **授予用户对表的SELECT和INSERT权限**：
+   ```sql
+   GRANT SELECT, INSERT ON Employees TO user1;
+   ```
+   这个语句授予 `user1` 对 `Employees` 表的 `SELECT` 和 `INSERT` 权限。
+
+2. **授予用户对某些列的权限**：
+   ```sql
+   GRANT SELECT (name, age) ON Employees TO user1;
+   ```
+   这个语句授予 `user1` 仅对 `Employees` 表的 `name` 和 `age` 列的 `SELECT` 权限。
+
+3. **授予用户对数据库的所有权限**：
+   ```sql
+   GRANT ALL ON DATABASE MyDatabase TO user1;
+   ```
+   这个语句授予 `user1` 对 `MyDatabase` 数据库的所有权限。
+
+4. **使用GRANT OPTION允许转授权**：
+   ```sql
+   GRANT SELECT ON Employees TO user1 WITH GRANT OPTION;
+   ```
+   这个语句不仅授予 `user1` 对 `Employees` 表的 `SELECT` 权限，还允许 `user1` 将该权限授予其他用户。
+
+5. **以系统管理员身份执行GRANT**：
+   ```sql
+   GRANT SELECT ON Employees TO user1 AS sysadmin;
+   ```
+   这个语句表示当前的数据库管理员 `sysadmin` 以其身份授予 `user1` 对 `Employees` 表的 `SELECT` 权限。
+
+## 收回用户权限
+### 语法
+```sql
+REVOKE [ GRANT OPTION FOR ]
+      { 
+        [ ALL [ PRIVILEGES ] ]
+        |
+                permission [ ( column [ ,...n ] ) ] [ ,...n ]
+      }
+      [ ON [ class :: ] securable ] 
+      { TO | FROM } principal [ ,...n ] 
+      [ CASCADE] [ AS principal ]
+```
+
+你提供的是 SQL Server 2012 中 `REVOKE` 语句的语法与说明，其作用是**撤销一个主体（如用户、角色等）对数据库对象的权限**。下面我将对这条语句进行详细介绍，并在最后补充一些实用示例和注意事项。
+
+---
+
+### 一、REVOKE 语句语法解析
+
+```sql
+REVOKE [ GRANT OPTION FOR ]
+   { 
+     [ ALL [ PRIVILEGES ] ]
+     |
+     permission [ ( column [ ,...n ] ) ] [ ,...n ]
+   }
+   [ ON [ class :: ] securable ] 
+   { TO | FROM } principal [ ,...n ] 
+   [ CASCADE ] 
+   [ AS principal ]
+```
+
+#### 参数说明：
+
+1. **`GRANT OPTION FOR`**
+   - 表示撤销的是“授予他人权限”的能力（而非直接使用该权限的能力）。
+   - 如果某用户 A 被授予了某权限，并且带有 GRANT OPTION，那么 A 可以将该权限再授予其他用户 B。
+   - 如果要撤销这个“传递权限”的能力，需要加上 `GRANT OPTION FOR`。
+
+2. **`ALL [ PRIVILEGES ]`**
+   - 撤销该主体对目标对象的**所有权限**。
+   - `PRIVILEGES` 是可选的装饰词。
+
+3. **`permission [ (column [...]) ]`**
+   - 指定要撤销的权限，例如：`SELECT`、`INSERT`、`UPDATE`、`EXECUTE` 等。
+   - 对于列级权限，可以指定特定的列。
+
+4. **`ON [ class:: ] securable`**
+   - 指定要撤销权限的**安全对象（securable）**，如：
+     - `TABLE`、`DATABASE`、`SCHEMA`、`VIEW`、`STORED PROCEDURE` 等。
+   - `class::` 是可选的分类说明词，比如 `OBJECT::MyTable`。
+
+5. **`TO | FROM principal`**
+   - 指定权限的**主体（principal）**，如数据库用户、角色、登录名等。
+   - 在 `REVOKE` 中应该使用 `FROM`，因为是在撤销权限。
+
+6. **`CASCADE`**
+   - 表示权限撤销时，也要自动撤销由该主体传递给其他主体的权限（“级联撤销”）。
+   - **只能在指定了 `GRANT OPTION FOR` 时使用**。
+
+7. **`AS principal`**
+   - 表示以某个主体的身份执行 `REVOKE`，用于跨数据库权限管理等高级场景。
+
+### 例子
+
+```sql
+--把账号cheng修改Author表AuthorID列的权限收回。
+REVOKE UPDATE(AuthorID)
+ON Author
+FROM cheng
+
+--把账号cheng对Author表的INSERT权限收回。
+REVOKE INSERT
+ON Author
+FROM cheng CASCADE
+
+--收回所有账号对教师表的查询权限。
+REVOKE SELECT
+ON Author
+FROM PUBLIC
+```
+
+## DENY 语句
+用户可使用DENY语句,防止主体通过其组或角色成员身份继承权限
+### 语法
+```sql
+DENY { ALL [ PRIVILEGES ] }
+      | permission [ ( column [ ,...n ] ) ] [ ,...n ]
+      [ ON [ class :: ] securable ] TO principal [ ,...n ] 
+      [ CASCADE] [ AS principal ]
+```
+如果某主体的该权限是通过指定GRANT OPTIONDENY获得的，那么，在撤销其该权限时，如果未指定CASCADE，则DENY将失败。
+### 例子
+```sql
+--拒绝账号cheng对Author表的SELECT权限。
+DENY SELECT ON Author TO cheng
 ```
