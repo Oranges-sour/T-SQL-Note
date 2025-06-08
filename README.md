@@ -220,6 +220,20 @@
     - [预防死锁方法](#预防死锁方法)
     - [解除死锁方法](#解除死锁方法)
   - [锁的使用要求](#锁的使用要求)
+- [数据库备份](#数据库备份)
+  - [恢复模式的分类](#恢复模式的分类)
+    - [简单恢复模式](#简单恢复模式)
+    - [完整恢复模式](#完整恢复模式)
+    - [大容量日志恢复模式](#大容量日志恢复模式)
+  - [数据库备份类型](#数据库备份类型)
+    - [完整备份](#完整备份)
+    - [完整差异备份](#完整差异备份)
+  - [使用BACKUP DATABASE命令进行备份](#使用backup-database命令进行备份)
+    - [语法](#语法-31)
+    - [例子](#例子-37)
+- [数据库还原](#数据库还原)
+  - [语法](#语法-32)
+  - [例子](#例子-38)
 
 # 数据类型
 ## 1. 精确数字  
@@ -2712,3 +2726,183 @@ COMMIT;
 3. **合理设置索引**，避免全表扫描带来的大范围锁；
 4. **避免交叉更新资源的事务**，减少死锁风险；
 5. **监控锁等待、阻塞与死锁日志**，及时调整策略。
+
+# 数据库备份
+
+## 恢复模式的分类
+
+SQL Server支持三种主要的恢复模式：**简单恢复模式**、**完整恢复模式**和**大容量日志恢复模式**。这些模式的选择直接影响数据库的日志管理方式以及灾难恢复的能力。
+
+### 简单恢复模式
+简单恢复模式是一种轻量级的日志管理策略。其特点是：
+
+- **日志截断**：SQL Server会定期截断事务日志，这意味着一旦事务提交，日志会被清空，不会保留过多的日志历史。
+- **不支持点时间恢复**：由于日志会被截断，所以无法恢复到某个特定的时间点，数据恢复只能恢复到上次备份的时间点。
+- **适用场景**：适用于对数据恢复要求不高的数据库，尤其是一些临时数据库或没有重大业务风险的小型应用。对于大多数企业应用来说，简单恢复模式并不适用，因为无法容忍数据丢失。
+
+### 完整恢复模式
+完整恢复模式确保日志记录所有事务和操作，因此它可以：
+
+- **保留所有事务日志**：日志会一直保留，直到执行日志备份。
+- **支持点时间恢复**：由于完整地保留所有事务日志，可以将数据库恢复到故障发生之前的任何时间点，这对于企业级应用至关重要。
+- **适用场景**：适合需要高可靠性的生产环境，如银行、金融、医疗等要求严格数据恢复的场景。
+
+### 大容量日志恢复模式
+大容量日志恢复模式是为处理大容量数据操作（如批量插入、大量数据更新、索引创建等）而设计的。这种模式的特点是：
+
+- **简化大容量操作的日志记录**：对于大容量操作，日志记录更简化，从而提高性能。
+- **保留其他事务的完整日志**：对于常规的事务，它依然会完整记录事务日志，保证完整的恢复能力。
+- **适用场景**：适用于需要处理大批量数据操作的环境，比如数据仓库、大数据分析平台等，通常它与完整恢复模式共同使用。
+
+## 数据库备份类型
+
+SQL Server提供了多种备份策略，以确保数据的安全性和恢复的灵活性。备份类型包括：**完整备份**、**差异备份**等。
+
+### 完整备份
+完整备份是数据库备份的基础，包含了数据库中的所有数据和日志部分，备份操作可以在一定周期内执行。
+
+- **备份内容**：包括数据库的所有数据，事务日志也会一并包含在备份中。
+- **恢复能力**：可以将数据库恢复到备份完成时的状态。
+- **适用场景**：完整备份通常是定期执行的操作，用于确保在灾难恢复时能够恢复到某个完整状态。
+
+### 完整差异备份
+差异备份只记录自上次完整备份后发生更改的数据。差异备份比完整备份更小、更快，并且可以减少数据丢失的风险。
+
+- **备份内容**：仅包含自上次完整备份以来发生变化的数据块。
+- **恢复能力**：为了恢复到一个特定时间点，必须先还原完整备份，然后再应用最后一次差异备份。
+- **适用场景**：差异备份适用于需要频繁备份且能接受恢复过程稍微复杂的环境，可以节省时间和存储空间。
+
+## 使用BACKUP DATABASE命令进行备份
+
+### 语法
+
+```sql
+BACKUP DATABASE { database_name | @database_name_var } 
+TO <backup_device> [ ,...n ] 
+[ [ MIRROR TO <backup_device> [ ,...n ] ] [ ...next-mirror ] ] 
+[ WITH 
+     [ BLOCKSIZE = { blocksize | @blocksize_variable } ] 
+     [ [ , ] { CHECKSUM | NO_CHECKSUM } ] 
+     [ [ , ] { STOP_ON_ERROR | CONTINUE_AFTER_ERROR } ] 
+     [ [ , ] DESCRIPTION = { 'text' | @text_variable } ] 
+     [ [ , ] DIFFERENTIAL ] 
+     [ [ , ] EXPIREDATE = { date | @date_var } ] 
+]
+```
+
+关键的部分解释：
+
+- `TO <backup_device>`：指定备份的目标设备，可以是磁盘、磁带或其他存储设备。
+- `BLOCKSIZE`：指定备份时的块大小，通常来说，较大的块大小可以提高备份和还原的效率。
+- `CHECKSUM`：启用校验和，确保备份文件的完整性。在备份时生成校验和，以确保数据未在备份过程中被篡改。
+- `DIFFERENTIAL`：指示执行差异备份（只备份自上次完整备份后变化的部分）。
+- `EXPIREDATE`：指定备份的过期时间，过期的备份可以被自动删除。
+
+### 例子
+```sql
+--将整个PUBLISH数据库完整备份到磁盘上，并创建一个新的媒体集。
+USE PUBLISH
+GO
+BACKUP DATABASE PUBLISH
+TO DISK = 'C:\pub.Bak'
+   WITH FORMAT,
+   NAME = '图书出版数据库的完整备份'
+GO
+
+-- 创建PUBLISH数据库的完整差异备份。
+USE PUBLISH
+GO
+BACKUP DATABASE PUBLISH
+TO DISK = 'C:\pub1.bak'
+   WITH DIFFERENTIAL
+GO
+
+-- 完整备份
+BACKUP DATABASE SalesDB 
+TO DISK = 'D:\Backups\SalesDB_FullBackup.bak'
+WITH INIT, 
+    CHECKSUM, 
+    DESCRIPTION = 'Full backup of SalesDB';
+
+-- 差异备份（基于完整备份）
+BACKUP DATABASE SalesDB 
+TO DISK = 'D:\Backups\SalesDB_DiffBackup.bak' 
+WITH DIFFERENTIAL, 
+    CHECKSUM, 
+    DESCRIPTION = 'Differential backup of SalesDB since last full backup';
+
+-- 日志备份
+BACKUP LOG SalesDB 
+TO DISK = 'D:\Backups\SalesDB_LogBackup.trn' 
+WITH CHECKSUM, 
+    DESCRIPTION = 'Transaction log backup for SalesDB';
+```
+
+# 数据库还原
+
+
+## 语法
+
+```sql
+RESTORE DATABASE { database_name | @database_name_var } 
+FROM <backup_device> [ ,...n ]
+WITH
+   [ { CHECKSUM | NO_CHECKSUM } ]
+   [ , { CONTINUE_AFTER_ERROR | STOP_ON_ERROR } ]
+   [ , FILE = { file_number | @file_number } ]
+   [ , KEEP_REPLICATION ]
+   [ , MEDIANAME = { media_name | @media_name_variable } ]
+   [ , MEDIAPASSWORD = { mediapassword | @mediapassword_variable } ]
+   [ , MOVE 'logical_file_name' TO 'operating_system_file_name' ] [ ,...n ]
+   [ , PASSWORD = { password | @password_variable } ]
+   [ , { RECOVERY | NORECOVERY | STANDBY = standby_file_name } ]
+```
+
+| 选项                                                       | 说明                                                                                                                           |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `database_name`                                            | 要恢复的目标数据库名。                                                                                                         |
+| `FROM <backup_device>`                                     | 指定备份设备，可以是磁盘、磁带或逻辑设备名称。                                                                                 |
+| `CHECKSUM / NO_CHECKSUM`                                   | 是否验证备份时生成的校验和，用于确保备份文件完整性。                                                                           |
+| `CONTINUE_AFTER_ERROR / STOP_ON_ERROR`                     | 发生错误时是继续恢复还是中止操作。默认是 `STOP_ON_ERROR`。                                                                     |
+| `FILE = file_number`                                       | 用于多文件备份时，指定还原哪一个备份集。                                                                                       |
+| `KEEP_REPLICATION`                                         | 保留复制设置，适用于复制环境。                                                                                                 |
+| `MEDIANAME`                                                | 指定备份介质的名称，用于验证与备份时一致性。                                                                                   |
+| `MEDIAPASSWORD`                                            | 如果介质设置了密码，需要提供密码才能访问。                                                                                     |
+| `MOVE 'logical_file_name' TO 'operating_system_file_name'` | 当目标数据库文件路径不同于原路径时，需要使用该参数重定位数据文件与日志文件。通常用于恢复到另一台服务器或目录结构不同的环境中。 |
+| `PASSWORD`                                                 | 如果备份设置了密码，需要提供密码。                                                                                             |
+| `RECOVERY`                                                 | 还原并将数据库置于可用状态（默认）。                                                                                           |
+| `NORECOVERY`                                               | 数据库不恢复，仍保留在还原状态，适用于**多个备份的还原序列**（如先还原完整备份，再还原日志备份）。                             |
+| `STANDBY = filename`                                       | 数据库处于只读恢复模式，可以在恢复过程中查看数据，同时保留恢复状态。                                                           |
+
+---
+
+## 例子
+```sql
+--还原完整备份到默认位置
+RESTORE DATABASE TestDB
+FROM DISK = 'D:\Backups\TestDB.bak'
+WITH RECOVERY;
+
+
+--还原并重定位数据和日志文件
+RESTORE DATABASE TestDB
+FROM DISK = 'D:\Backups\TestDB.bak'
+WITH 
+  MOVE 'TestDB_Data' TO 'E:\SQLData\TestDB.mdf',
+  MOVE 'TestDB_Log' TO 'E:\SQLLogs\TestDB.ldf',
+  RECOVERY;
+
+
+--还原完整备份但不恢复（用于还原多个日志备份）
+RESTORE DATABASE TestDB
+FROM DISK = 'D:\Backups\TestDB.bak'
+WITH NORECOVERY;
+
+RESTORE LOG TestDB
+FROM DISK = 'D:\Backups\TestDB_Log1.trn'
+WITH NORECOVERY;
+
+RESTORE LOG TestDB
+FROM DISK = 'D:\Backups\TestDB_Log2.trn'
+WITH RECOVERY;
+```
